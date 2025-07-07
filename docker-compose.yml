@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # Service Backend
+  backend:
+    build: ./backend
+    container_name: turismo-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=database
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=drive_turismo
+      - DB_PORT=5432
+      - JWT_SECRET=votre_secret_jwt_securise
+      - FRONTEND_URL=http://localhost:8082
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - database
+    networks:
+      - turismo-network
+    restart: unless-stopped
+
+  # Service Frontend
+  frontend:
+    build: ./frontend
+    container_name: turismo-frontend
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VUE_APP_API_URL=http://localhost:3000
+      - NODE_ENV=development
+    depends_on:
+      - backend
+    networks:
+      - turismo-network
+    restart: unless-stopped
+
+  # Service Base de données
+  database:
+    image: postgres:14-alpine
+    container_name: turismo-database
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=drive_turismo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - turismo-network
+    restart: unless-stopped
+    
+  # Service pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: turismo-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@turismo.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - database
+    networks:
+      - turismo-network
+    restart: unless-stopped
+
+networks:
+  turismo-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:

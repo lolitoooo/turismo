@@ -1,0 +1,185 @@
+/* Styles principaux de l'application */
+
+/* Importation des polices */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+/* Variables */
+:root {
+  --color-primary: #1a1a1a;
+  --color-secondary: #333333;
+  --color-text: #2c3e50;
+  --color-text-light: #666666;
+  --color-background: #ffffff;
+  --color-border: #dddddd;
+  --color-error: #dc3545;
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-info: #17a2b8;
+  
+  --font-family-base: 'Poppins', sans-serif;
+  --font-family-heading: 'Playfair Display', serif;
+  
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --border-radius: 8px;
+}
+
+/* Reset et styles de base */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-family-base);
+  color: var(--color-text);
+  background-color: #f8f8f8;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-heading);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color 0.3s;
+  
+  &:hover {
+    color: var(--color-secondary);
+  }
+}
+
+button {
+  cursor: pointer;
+  font-family: var(--font-family-base);
+}
+
+/* Utilitaires */
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }
+.mt-5 { margin-top: 3rem; }
+
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+.mb-5 { margin-bottom: 3rem; }
+
+/* Boutons */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.3s;
+  border: none;
+  
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  
+  &:hover:not(:disabled) {
+    background-color: var(--color-secondary);
+  }
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary);
+  
+  &:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+}
+
+/* Formulaires */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-family: var(--font-family-base);
+  font-size: 1rem;
+  transition: border-color 0.3s;
+  
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+  
+  &.is-invalid {
+    border-color: var(--color-error);
+  }
+}
+
+.form-error {
+  color: var(--color-error);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 992px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  html {
+    font-size: 13px;
+  }
+}

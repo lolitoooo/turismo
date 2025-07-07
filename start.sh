@@ -1,0 +1,28 @@
+#!/bin/bash
+
+echo "Démarrage des conteneurs Drive Turismo..."
+docker compose up -d
+
+echo ""
+echo "Services disponibles :"
+echo "- Frontend: http://localhost:8082"
+echo "- Backend API: http://localhost:3000"
+echo "- pgAdmin: http://localhost:5050"
+echo ""
+echo "Identifiants pgAdmin :"
+echo "- Email: admin@turismo.com"
+echo "- Mot de passe: admin"
+echo ""
+echo "Pour vous connecter à la base de données dans pgAdmin :"
+echo "1. Connectez-vous à pgAdmin"
+echo "2. Ajoutez un nouveau serveur avec les paramètres suivants :"
+echo "   - Nom: Turismo DB"
+echo "   - Hôte: database (ou host.docker.internal pour macOS)"
+echo "   - Port: 5432"
+echo "   - Base de données: turismo"
+echo "   - Utilisateur: postgres"
+echo "   - Mot de passe: postgres"
+echo ""
+echo "Utilisateur admin par défaut :"
+echo "- Email: admin@driveturismo.com"
+echo "- Mot de passe: admin123"
