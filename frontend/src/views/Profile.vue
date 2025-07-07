@@ -191,7 +191,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
-import axios from 'axios';
+import api from '../services/api';
 import { debounce } from 'lodash';
 import '@/assets/styles/profile.scss';
 
@@ -220,7 +220,8 @@ const profileData = ref({
 // URL de l'image de profil
 const profileImageUrl = computed(() => {
   if (profileData.value.profileImage) {
-    return `${import.meta.env.VITE_API_URL}/uploads/profile-images/${profileData.value.profileImage}`;
+    // Utiliser le chemin relatif pour accéder aux images via le proxy
+    return `http://localhost:3000/api/uploads/profile-images/${profileData.value.profileImage}`;
   }
   return null;
 });
@@ -261,22 +262,29 @@ const profilePhotoStyle = computed(() => {
   };
 });
 
-onMounted(() => {
-  if (authStore.user) {
-    profileData.value = {
-      firstName: authStore.user.firstName || '',
-      lastName: authStore.user.lastName || '',
-      email: authStore.user.email || '',
-      phone: authStore.user.phone || '',
-      address: authStore.user.address || '',
-      city: authStore.user.city || '',
-      postalCode: authStore.user.postalCode || '',
-      country: authStore.user.country || '',
-      driverLicenseNumber: authStore.user.driverLicenseNumber || '',
-      latitude: authStore.user.latitude || null,
-      longitude: authStore.user.longitude || null,
-      profileImage: authStore.user.profileImage || null
-    };
+onMounted(async () => {
+  try {
+    // Charger les données utilisateur au montage du composant
+    await authStore.fetchCurrentUser();
+    
+    if (authStore.user) {
+      profileData.value = {
+        firstName: authStore.user.firstName || '',
+        lastName: authStore.user.lastName || '',
+        email: authStore.user.email || '',
+        phone: authStore.user.phone || '',
+        address: authStore.user.address || '',
+        city: authStore.user.city || '',
+        postalCode: authStore.user.postalCode || '',
+        country: authStore.user.country || '',
+        driverLicenseNumber: authStore.user.driverLicenseNumber || '',
+        latitude: authStore.user.latitude || null,
+        longitude: authStore.user.longitude || null,
+        profileImage: authStore.user.profileImage || null
+      };
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des données utilisateur:', error);
   }
 });
 
@@ -289,7 +297,7 @@ const searchAddresses = debounce(async () => {
   
   isSearching.value = true;
   try {
-    const response = await axios.get('/api/address/search', {
+    const response = await api.get('/api/address/search', {
       params: { q: addressSearch.value }
     });
     
@@ -341,10 +349,9 @@ async function handlePhotoUpload(event) {
     const formData = new FormData();
     formData.append('profileImage', file);
     
-    const response = await axios.post('/api/upload/profile-image', formData, {
+    const response = await api.post('/api/upload/profile-image', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${authStore.token}`
+        'Content-Type': 'multipart/form-data'
       }
     });
     

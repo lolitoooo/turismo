@@ -7,6 +7,7 @@ const categoryRoutes = require('./category.routes');
 const subscriptionRoutes = require('./subscription.routes');
 const addressRoutes = require('./address.routes');
 const uploadRoutes = require('./upload.routes');
+const imagesRoutes = require('./images.routes');
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.use('/categories', categoryRoutes);
 router.use('/subscriptions', subscriptionRoutes);
 router.use('/address', addressRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/images', imagesRoutes);
 
 // Route de base pour vérifier l'API
 router.get('/', (req, res) => {

@@ -147,7 +147,8 @@ const recentActivities = ref([]);
 // URL de l'image de profil
 const profileImageUrl = computed(() => {
   if (user.value?.profileImage) {
-    return `${import.meta.env.VITE_API_URL}/uploads/profile-images/${user.value.profileImage}`;
+    // Utiliser le chemin relatif pour accéder aux images via le proxy
+    return `/api/uploads/profile-images/${user.value.profileImage}`;
   }
   return null;
 });
@@ -189,11 +190,15 @@ const profileAvatarStyle = computed(() => {
 });
 
 // Calcul du pourcentage de complétion du profil
-onMounted(() => {
-  if (user.value) {
+onMounted(async () => {
+  // Charger les données utilisateur au montage du composant
+  try {
+    await authStore.fetchCurrentUser();
     calculateProfileCompletion();
     calculateSubscriptionDays();
     fetchUserReservations();
+  } catch (error) {
+    console.error('Erreur lors du chargement des données utilisateur:', error);
   }
 });
 

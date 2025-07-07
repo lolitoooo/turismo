@@ -18,7 +18,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use(compression());
 
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Middleware pour ajouter les en-têtes CORS aux fichiers statiques
+const staticFilesCors = (req, res, next) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET',
+    'Cross-Origin-Resource-Policy': 'cross-origin'
+  });
+  next();
+};
+
+// Servir les fichiers statiques via différents chemins pour compatibilité
+app.use('/uploads', staticFilesCors, express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', staticFilesCors, express.static(path.join(__dirname, '../uploads')));
+app.use('/api/images/profile', staticFilesCors, express.static(path.join(__dirname, '../uploads/profile-images')));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
