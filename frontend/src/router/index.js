@@ -10,6 +10,11 @@ import ResetPassword from '../views/auth/ResetPassword.vue'
 import Dashboard from '../views/Dashboard.vue'
 import Profile from '../views/Profile.vue'
 import NotFound from '../views/NotFound.vue'
+import About from '../views/About.vue'
+import Contact from '../views/Contact.vue'
+import TermsOfService from '../views/TermsOfService.vue'
+import PrivacyPolicy from '../views/PrivacyPolicy.vue'
+import FAQ from '../views/FAQ.vue'
 
 const routes = [
   {
@@ -55,6 +60,36 @@ const routes = [
     meta: { title: 'Mon Profil', requiresAuth: true }
   },
   {
+    path: '/about',
+    name: 'about',
+    component: About,
+    meta: { title: 'À propos' }
+  },
+  {
+    path: '/contact',
+    name: 'contact',
+    component: Contact,
+    meta: { title: 'Contact' }
+  },
+  {
+    path: '/terms-of-service',
+    name: 'terms-of-service',
+    component: TermsOfService,
+    meta: { title: 'Conditions générales' }
+  },
+  {
+    path: '/privacy-policy',
+    name: 'privacy-policy',
+    component: PrivacyPolicy,
+    meta: { title: 'Politique de confidentialité' }
+  },
+  {
+    path: '/faq',
+    name: 'faq',
+    component: FAQ,
+    meta: { title: 'FAQ' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFound,
@@ -73,7 +108,7 @@ const router = createRouter({
 // Navigation guards
 router.beforeEach((to, from, next) => {
   // Mise à jour du titre de la page
-  document.title = to.meta.title ? `${to.meta.title} | Drive Turismo` : 'Drive Turismo'
+  document.title = to.meta.title ? `${to.meta.title} | Turismo` : 'Turismo'
   
   const authStore = useAuthStore()
   const isLoggedIn = authStore.isAuthenticated

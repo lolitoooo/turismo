@@ -21,8 +21,8 @@
           <div class="footer-column">
             <h3 class="footer-title">Informations</h3>
             <ul class="footer-menu">
-              <li><router-link to="/terms">Conditions générales</router-link></li>
-              <li><router-link to="/privacy">Politique de confidentialité</router-link></li>
+              <li><router-link to="/terms-of-service">Conditions générales</router-link></li>
+              <li><router-link to="/privacy-policy">Politique de confidentialité</router-link></li>
               <li><router-link to="/faq">FAQ</router-link></li>
             </ul>
           </div>
@@ -39,7 +39,7 @@
       </div>
       
       <div class="footer-bottom">
-        <p class="copyright">&copy; {{ currentYear }} Drive Turismo. Tous droits réservés.</p>
+        <p class="copyright">&copy; {{ currentYear }} Turismo. Tous droits réservés.</p>
         <div class="social-links">
           <a href="#" class="social-link"><i class="pi pi-facebook"></i></a>
           <a href="#" class="social-link"><i class="pi pi-instagram"></i></a>
@@ -99,6 +99,7 @@ export default {
     font-weight: 700;
     margin-bottom: 0.5rem;
     letter-spacing: 1px;
+    color: #fff;
   }
   
   .footer-slogan {
@@ -126,6 +127,7 @@ export default {
     font-weight: 600;
     margin-bottom: 1.25rem;
     position: relative;
+    color: #fff;
     
     &::after {
       content: '';
