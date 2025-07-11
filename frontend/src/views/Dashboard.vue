@@ -147,8 +147,8 @@ const recentActivities = ref([]);
 // URL de l'image de profil
 const profileImageUrl = computed(() => {
   if (user.value?.profileImage) {
-    // Utiliser le chemin relatif pour accéder aux images via le proxy
-    return `/api/uploads/profile-images/${user.value.profileImage}`;
+    // Utiliser le chemin correct pour accéder aux images de profil
+    return `/api/images/profile/${user.value.profileImage}`;
   }
   return null;
 });

@@ -107,8 +107,21 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       // Vérifier la validité du token
       const response = await api.get('/api/auth/verify-token')
-      user.value = response.data.user
+      if (response.data.user) {
+        user.value = response.data.user
+        
+        // Si l'utilisateur existe mais que le rôle n'est pas chargé correctement,
+        // récupérer le profil complet de l'utilisateur
+        if (!user.value.role || !user.value.role.name) {
+          await fetchCurrentUser()
+        }
+        
+        console.log('Utilisateur authentifié:', user.value)
+        console.log('Rôle:', user.value?.role?.name)
+        console.log('Est admin:', isAdmin.value)
+      }
     } catch (err) {
+      console.error('Erreur lors de la vérification du token:', err)
       // Si le token est invalide, déconnecter l'utilisateur
       logout()
     }

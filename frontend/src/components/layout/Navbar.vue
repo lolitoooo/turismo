@@ -11,6 +11,7 @@
         <div class="navbar-start">
           <router-link to="/" class="navbar-item">Accueil</router-link>
           <router-link to="/cars" class="navbar-item">Véhicules</router-link>
+          <router-link to="/subscriptions" class="navbar-item">Abonnements</router-link>
           <router-link to="/about" class="navbar-item">À propos</router-link>
           <router-link to="/contact" class="navbar-item">Contact</router-link>
         </div>
@@ -32,6 +33,9 @@
                 </router-link>
                 <router-link to="/reservations" class="dropdown-item">
                   <i class="pi pi-calendar"></i> Mes réservations
+                </router-link>
+                <router-link to="/subscriptions" class="dropdown-item">
+                  <i class="pi pi-star"></i> Mes abonnements
                 </router-link>
                 <hr class="dropdown-divider">
                 <a href="#" class="dropdown-item" @click.prevent="handleLogout">

@@ -10,6 +10,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       field: 'reservation_id'
     },
+    subscriptionId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'subscription_id'
+    },
     amount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
@@ -55,6 +60,16 @@ module.exports = (sequelize, DataTypes) => {
     Payment.belongsTo(models.Reservation, {
       foreignKey: 'reservationId',
       as: 'reservation'
+    });
+    
+    Payment.belongsTo(models.Subscription, {
+      foreignKey: 'subscriptionId',
+      as: 'subscription'
+    });
+    
+    Payment.hasMany(models.Subscription, {
+      foreignKey: 'paymentId',
+      as: 'subscriptions'
     });
   };
 

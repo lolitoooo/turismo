@@ -11,65 +11,13 @@
       </div>
     </section>
     
-    <!-- Search Filters -->
-    <section class="search-section">
-      <div class="search-container">
-        <div class="search-tabs">
-          <button 
-            class="tab-button" 
-            :class="{ active: activeTab === 'type' }"
-            @click="activeTab = 'type'"
-          >
-            Trier par
-          </button>
-          <button 
-            class="tab-button" 
-            :class="{ active: activeTab === 'vehicle' }"
-            @click="activeTab = 'vehicle'"
-          >
-            Type de voiture
-          </button>
-          <button 
-            class="tab-button" 
-            :class="{ active: activeTab === 'engine' }"
-            @click="activeTab = 'engine'"
-          >
-            Motorisation
-          </button>
-          <button 
-            class="tab-button" 
-            :class="{ active: activeTab === 'brand' }"
-            @click="activeTab = 'brand'"
-          >
-            Marques
-          </button>
-        </div>
-        
-        <div class="category-filters">
-          <button 
-            class="category-button"
-            :class="{ active: selectedCategory === 'all' }"
-            @click="selectedCategory = 'all'"
-          >
-            All
-          </button>
-          <button 
-            v-for="i in 6" 
-            :key="i"
-            class="category-button"
-            :class="{ active: selectedCategory === `cat${i < 10 ? '0' + i : i}` }"
-            @click="selectedCategory = `cat${i < 10 ? '0' + i : i}`"
-          >
-            Cat {{ i < 10 ? '0' + i : i }}
-          </button>
-        </div>
-      </div>
-    </section>
+    <!-- Spacer pour remplacer les filtres -->
+    <div style="height: 40px;"></div>
     
     <!-- Featured Cars -->
     <section class="cars-section">
       <div class="cars-container">
-        <h2 class="section-title">Nos véhicules d'exception</h2>
+        <h2 class="section-title">Nos véhicules les plus prestigieux</h2>
         
         <div v-if="hasCars" class="cars-grid">
           <div class="car-card" v-for="car in filteredCars" :key="car.id">
@@ -88,7 +36,6 @@
                   <span>{{ car.engine }}</span>
                 </div>
               </div>
-              <div class="car-price">{{ car.price }} € <span>/ jour</span></div>
               <div class="car-actions">
                 <router-link :to="`/cars/${car.id}`" class="btn-more">Plus d'infos</router-link>
               </div>
@@ -174,8 +121,6 @@ import { ref, computed } from 'vue'
 export default {
   name: 'HomeView',
   setup() {
-    const activeTab = ref('type')
-    const selectedCategory = ref('all')
     
     const cars = ref([
       // Catégorie 1
@@ -224,20 +169,26 @@ export default {
     ])
     
     const filteredCars = computed(() => {
-      if (selectedCategory.value === 'all') {
-        return cars.value // Afficher toutes les voitures quand 'all' est sélectionné
-      } else {
-        return cars.value
-          .filter(car => car.category === selectedCategory.value)
-          .slice(0, 8) // Limiter à 8 voitures par catégorie sur la page d'accueil
+      // Créer un tableau pour stocker une voiture de chaque catégorie
+      const selectedCars = [];
+      
+      // Sélectionner une voiture de chaque catégorie (de 1 à 6)
+      for (let i = 1; i <= 6; i++) {
+        const categoryName = `cat${i < 10 ? '0' + i : i}`;
+        const carsInCategory = cars.value.filter(car => car.category === categoryName);
+        
+        // Si la catégorie contient des voitures, prendre la première
+        if (carsInCategory.length > 0) {
+          selectedCars.push(carsInCategory[0]);
+        }
       }
+      
+      return selectedCars;
     })
     
     const hasCars = computed(() => filteredCars.value.length > 0)
     
     return {
-      activeTab,
-      selectedCategory,
       cars,
       filteredCars,
       hasCars

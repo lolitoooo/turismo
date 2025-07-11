@@ -82,23 +82,42 @@ const userController = {
   },
 
   /**
-   * Récupération de tous les utilisateurs
+   * Récupération de tous les utilisateurs avec pagination
    */
   getAllUsers: async (req, res, next) => {
     try {
-      const users = await User.findAll({
+      // Paramètres de pagination
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const offset = (page - 1) * limit;
+      
+      // Récupération des utilisateurs avec pagination
+      const { count, rows: users } = await User.findAndCountAll({
         attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
         include: [
           { model: Role, as: 'role' },
           { model: SubscriptionType, as: 'subscriptionType' }
-        ]
+        ],
+        limit,
+        offset,
+        order: [['createdAt', 'DESC']]
       });
+
+      // Calcul du nombre total de pages
+      const totalPages = Math.ceil(count / limit);
 
       res.status(200).json({
         message: 'Liste des utilisateurs récupérée avec succès',
-        users
+        users,
+        pagination: {
+          total: count,
+          totalPages,
+          currentPage: page,
+          limit
+        }
       });
     } catch (error) {
+      logger.error('Erreur lors de la récupération des utilisateurs:', error);
       next(error);
     }
   },
@@ -141,12 +160,28 @@ const userController = {
    */
   createUser: async (req, res, next) => {
     try {
-      const { email, password, firstName, lastName, phone, roleId } = req.body;
+      const { email, password, firstName, lastName, phone, role, isActive } = req.body;
+
+      // Journaliser les données reçues pour le débogage
+      logger.info('Données reçues pour la création d\'utilisateur:', { ...req.body, password: '***' });
 
       // Vérification si l'email existe déjà
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
         return res.status(400).json({ message: 'Cet email est déjà utilisé' });
+      }
+
+      // Récupération de l'ID du rôle à partir du nom du rôle
+      let roleId;
+      if (role) {
+        const roleRecord = await Role.findOne({ where: { name: role } });
+        if (roleRecord) {
+          roleId = roleRecord.id;
+        } else {
+          // Rôle par défaut (customer) si le rôle n'est pas trouvé
+          const defaultRole = await Role.findOne({ where: { name: 'customer' } });
+          roleId = defaultRole ? defaultRole.id : null;
+        }
       }
 
       // Création de l'utilisateur
@@ -156,7 +191,8 @@ const userController = {
         firstName,
         lastName,
         phone,
-        roleId
+        roleId,
+        isActive: isActive !== undefined ? isActive : true
       });
 
       // Récupération de l'utilisateur créé avec son rôle
@@ -201,21 +237,31 @@ const userController = {
         }
       }
 
-      // Mise à jour de l'utilisateur
-      await user.update({
-        email: email || user.email,
-        firstName: firstName || user.firstName,
-        lastName: lastName || user.lastName,
-        phone: phone || user.phone,
-        address: address || user.address,
-        city: city || user.city,
-        postalCode: postalCode || user.postalCode,
-        country: country || user.country
-      });
+      const updateData = {};
+      
+      // Ne mettre à jour que les champs fournis dans la requête
+      if (email !== undefined) updateData.email = email;
+      if (firstName !== undefined) updateData.firstName = firstName;
+      if (lastName !== undefined) updateData.lastName = lastName;
+      if (phone !== undefined) updateData.phone = phone;
+      if (address !== undefined) updateData.address = address;
+      if (city !== undefined) updateData.city = city;
+      if (postalCode !== undefined) updateData.postalCode = postalCode;
+      if (country !== undefined) updateData.country = country;
+      if (req.body.isActive !== undefined) updateData.isActive = req.body.isActive;
+      
+      // Journaliser les données de mise à jour pour le débogage
+      logger.info(`Mise à jour de l'utilisateur ${id} avec les données:`, updateData);
+      
+      await user.update(updateData);
 
       // Si l'admin met à jour le rôle
-      if (req.body.roleId && req.user.role.name === 'admin') {
-        await user.update({ roleId: req.body.roleId });
+      if (req.body.role && req.user.role.name === 'admin') {
+        // Récupération de l'ID du rôle à partir du nom
+        const roleRecord = await Role.findOne({ where: { name: req.body.role } });
+        if (roleRecord) {
+          await user.update({ roleId: roleRecord.id });
+        }
       }
 
       // Récupération de l'utilisateur mis à jour avec son rôle

@@ -103,6 +103,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       field: 'reset_password_expires'
     },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      field: 'is_active'
+    },
     createdAt: {
       type: DataTypes.DATE,
       field: 'created_at'

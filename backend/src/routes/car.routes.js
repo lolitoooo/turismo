@@ -11,6 +11,17 @@ const router = express.Router();
 // Obtenir toutes les voitures disponibles
 router.get('/available', carController.getAvailableCars);
 
+// Rechercher des voitures disponibles pour une période donnée
+router.get(
+  '/search',
+  [
+    query('startDate').optional().isISO8601().withMessage('Date de début invalide'),
+    query('endDate').optional().isISO8601().withMessage('Date de fin invalide'),
+    validateRequest
+  ],
+  carController.searchAvailableCars
+);
+
 // Obtenir une voiture par ID
 router.get(
   '/:id',
@@ -19,17 +30,6 @@ router.get(
     validateRequest
   ],
   carController.getCarById
-);
-
-// Rechercher des voitures disponibles pour une période donnée
-router.get(
-  '/search',
-  [
-    query('startDate').isISO8601().withMessage('Date de début invalide'),
-    query('endDate').isISO8601().withMessage('Date de fin invalide'),
-    validateRequest
-  ],
-  carController.searchAvailableCars
 );
 
 // Routes protégées

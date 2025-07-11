@@ -86,6 +86,11 @@
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
+  
+  // Placer la section d'abonnement en premier sur toute la largeur
+  .subscription-section {
+    grid-column: 1 / -1;
+  }
 }
 
 .profile-section {
@@ -105,6 +110,143 @@
       font-weight: 600;
       color: #1a1a1a;
       margin: 0;
+    }
+  }
+}
+
+.subscription-section {
+  .subscription-info {
+    .subscription-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      
+      h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0;
+        color: #fff;
+      }
+      
+      .subscription-badge {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+      
+      &.starter {
+        background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+      }
+      
+      &.urban {
+        background: linear-gradient(135deg, #134e5e 0%, #71b280 100%);
+      }
+      
+      &.executive {
+        background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
+      }
+      
+      &.prestige {
+        background: linear-gradient(135deg, #141e30 0%, #243b55 100%);
+      }
+      
+      &.elite {
+        background: linear-gradient(135deg, #000428 0%, #004e92 100%);
+      }
+      
+      &.signature {
+        background: linear-gradient(135deg, #000000 0%, #434343 100%);
+      }
+    }
+    
+    .subscription-details {
+      padding: 0 0.5rem;
+      
+      .subscription-detail {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.85rem 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        
+        &:last-child {
+          border-bottom: none;
+        }
+        
+        .detail-label {
+          font-weight: 500;
+          color: #555;
+        }
+        
+        .detail-value {
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+      }
+    }
+    
+    .subscription-actions {
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: center;
+      
+      .btn-cancel {
+        background-color: transparent;
+        color: #e74c3c;
+        border: 1px solid #e74c3c;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          background-color: rgba(231, 76, 60, 0.1);
+        }
+      }
+    }
+  }
+  
+  .no-subscription {
+    text-align: center;
+    padding: 2rem 1rem;
+    
+    p {
+      margin-bottom: 1rem;
+      color: #555;
+      
+      &:first-child {
+        font-weight: 500;
+        font-size: 1.1rem;
+        color: #1a1a1a;
+      }
+    }
+    
+    .btn-subscribe {
+      display: inline-block;
+      background-color: #1a1a1a;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      margin-top: 1rem;
+      
+      &:hover {
+        background-color: #333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
     }
   }
 }

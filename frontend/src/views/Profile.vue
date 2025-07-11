@@ -21,6 +21,49 @@
         </div>
         
         <div class="profile-grid">
+          <!-- Section Abonnement -->
+          <div class="profile-section subscription-section">
+            <div class="section-header">
+              <h2>Mon Abonnement</h2>
+            </div>
+            
+            <div v-if="activeSubscription" class="subscription-info">
+              <div class="subscription-header" :class="activeSubscription.name.toLowerCase()">
+                <h3>{{ activeSubscription.name }}</h3>
+                <div class="subscription-badge">Actif</div>
+              </div>
+              
+              <div class="subscription-details">
+                <div class="subscription-detail">
+                  <span class="detail-label">Prix mensuel:</span>
+                  <span class="detail-value">{{ activeSubscription.price }}€</span>
+                </div>
+                <div class="subscription-detail">
+                  <span class="detail-label">Jours de location:</span>
+                  <span class="detail-value">{{ activeSubscription.daysPerMonth }} jours/mois</span>
+                </div>
+                <div class="subscription-detail">
+                  <span class="detail-label">Accès véhicules:</span>
+                  <span class="detail-value">{{ activeSubscription.vehicleAccess }}</span>
+                </div>
+                <div class="subscription-detail">
+                  <span class="detail-label">Date d'expiration:</span>
+                  <span class="detail-value">{{ formatDate(activeSubscription.expiryDate) }}</span>
+                </div>
+              </div>
+              
+              <div class="subscription-actions">
+                <button @click="cancelSubscription" class="btn-cancel">Annuler l'abonnement</button>
+              </div>
+            </div>
+            
+            <div v-else class="no-subscription">
+              <p>Vous n'avez pas d'abonnement actif.</p>
+              <p>Sans abonnement, vous ne pouvez pas réserver de véhicules.</p>
+              <router-link to="/subscriptions" class="btn-subscribe">Voir les abonnements</router-link>
+            </div>
+          </div>
+          
           <!-- Section Photo de profil -->
           <div class="profile-section photo-section">
             <div class="section-header">
@@ -189,19 +232,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import api from '../services/api';
 import { debounce } from 'lodash';
+import { getActiveSubscription, cancelSubscription as cancelUserSubscription, getSubscriptionById } from '@/services/subscriptionService';
+import { apiClient } from '@/services/api.service';
+import { checkSessionStatus } from '@/services/stripeService';
 import '@/assets/styles/profile.scss';
 
 const authStore = useAuthStore();
-const successMessage = ref('');
-const addressSearch = ref('');
-const addressSuggestions = ref([]);
-const isSearching = ref(false);
-const isUploading = ref(false);
-
 const profileData = ref({
   firstName: '',
   lastName: '',
@@ -217,28 +257,15 @@ const profileData = ref({
   profileImage: null
 });
 
-// URL de l'image de profil
-const profileImageUrl = computed(() => {
-  if (profileData.value.profileImage) {
-    // Utiliser le chemin relatif pour accéder aux images via le proxy
-    return `http://localhost:3000/api/uploads/profile-images/${profileData.value.profileImage}`;
-  }
-  return null;
-});
+const successMessage = ref('');
+const addressSearch = ref('');
+const addressSuggestions = ref([]);
+const isSearching = ref(false);
+const isUploading = ref(false);
+const profileImageUrl = ref('');
+const activeSubscription = ref(null);
 
-// Initiales de l'utilisateur pour l'avatar par défaut
-const userInitials = computed(() => {
-  if (profileData.value.firstName && profileData.value.lastName) {
-    return `${profileData.value.firstName.charAt(0)}${profileData.value.lastName.charAt(0)}`;
-  } else if (profileData.value.firstName) {
-    return profileData.value.firstName.charAt(0);
-  } else if (profileData.value.lastName) {
-    return profileData.value.lastName.charAt(0);
-  }
-  return 'U';
-});
-
-// Style pour l'avatar
+// Style pour la photo de profil
 const profilePhotoStyle = computed(() => {
   if (profileImageUrl.value) {
     return {
@@ -247,44 +274,115 @@ const profilePhotoStyle = computed(() => {
       backgroundPosition: 'center'
     };
   }
-  
-  // Générer une couleur basée sur les initiales
-  const hash = userInitials.value.charCodeAt(0) + (userInitials.value.length > 1 ? userInitials.value.charCodeAt(1) : 0);
-  const hue = hash % 360;
-  return {
-    backgroundColor: `hsl(${hue}, 70%, 60%)`,
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '3rem',
-    fontWeight: 'bold'
-  };
+  return {};
 });
 
+// Fonction pour récupérer les détails de l'abonnement depuis le backend
+async function fetchSubscriptionDetails(subscriptionId) {
+  try {
+    // Essayer d'abord de récupérer depuis l'API
+    const response = await apiClient.get(`/api/subscriptions/${subscriptionId}`);
+    if (response && response.data) {
+      return response.data;
+    }
+    
+    // Si l'API échoue, utiliser le service local
+    return await getSubscriptionById(subscriptionId);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des détails de l\'abonnement:', error);
+    // Fallback sur le service local
+    return await getSubscriptionById(subscriptionId);
+  }
+}
+
+// Fonction pour vérifier si le paiement a été validé pour l'abonnement
+async function checkPaymentValidation(userData) {
+  try {
+    // Vérifier si l'utilisateur a des informations d'abonnement
+    if (!userData || !userData.subscription) {
+      return false;
+    }
+    
+    // Récupérer le sessionId du paiement depuis le localStorage
+    const paymentSessionId = localStorage.getItem('lastPaymentSessionId');
+    
+    if (!paymentSessionId) {
+      // Si aucun sessionId n'est trouvé, vérifier si l'abonnement a des dates valides
+      // Cela signifie que l'abonnement a été validé précédemment
+      return !!(userData.subscription.startDate && userData.subscription.expiryDate);
+    }
+    
+    // Vérifier le statut du paiement auprès de Stripe
+    try {
+      const sessionStatus = await checkSessionStatus(paymentSessionId);
+      
+      // Si le statut est 'complete', le paiement a été validé
+      if (sessionStatus && sessionStatus.status === 'complete') {
+        return true;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut de paiement:', error);
+      // En cas d'erreur, vérifier si l'abonnement a des dates valides
+      return !!(userData.subscription.startDate && userData.subscription.expiryDate);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Erreur lors de la vérification de la validation du paiement:', error);
+    return false;
+  }
+}
+
+// Charger les données du profil au chargement du composant
 onMounted(async () => {
   try {
-    // Charger les données utilisateur au montage du composant
-    await authStore.fetchCurrentUser();
-    
-    if (authStore.user) {
-      profileData.value = {
-        firstName: authStore.user.firstName || '',
-        lastName: authStore.user.lastName || '',
-        email: authStore.user.email || '',
-        phone: authStore.user.phone || '',
-        address: authStore.user.address || '',
-        city: authStore.user.city || '',
-        postalCode: authStore.user.postalCode || '',
-        country: authStore.user.country || '',
-        driverLicenseNumber: authStore.user.driverLicenseNumber || '',
-        latitude: authStore.user.latitude || null,
-        longitude: authStore.user.longitude || null,
-        profileImage: authStore.user.profileImage || null
-      };
+    // Si l'utilisateur est connecté, récupérer ses données
+    if (authStore.isAuthenticated) {
+      const userData = await authStore.fetchCurrentUser();
+      
+      if (userData) {
+        profileData.value = { ...userData };
+        
+        // Initialiser la recherche d'adresse avec l'adresse actuelle
+        if (profileData.value.address) {
+          addressSearch.value = profileData.value.address;
+        }
+        
+        // Gérer l'image de profil
+        if (profileData.value.profileImage) {
+          profileImageUrl.value = `/api/images/profile/${profileData.value.profileImage}`;
+        }
+        
+        // Récupérer l'abonnement actif depuis le localStorage
+        const localActiveSubscription = getActiveSubscription();
+        
+        // Vérifier si un paiement a été validé pour l'abonnement
+        const paymentValidated = await checkPaymentValidation(userData);
+        
+        // Ne pas afficher d'abonnement si le paiement n'a pas été validé
+        if (!paymentValidated) {
+          activeSubscription.value = null;
+        }
+        // Si le paiement a été validé et l'utilisateur a un abonnement
+        else if (userData.subscription && userData.subscription.id) {
+          // Récupérer les détails complets de l'abonnement
+          const subscriptionDetails = await fetchSubscriptionDetails(userData.subscription.id);
+          if (subscriptionDetails) {
+            activeSubscription.value = {
+              ...subscriptionDetails,
+              startDate: userData.subscription.startDate,
+              expiryDate: userData.subscription.expiryDate
+            };
+          } else {
+            activeSubscription.value = null;
+          }
+        } else {
+          activeSubscription.value = null;
+        }
+      }
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des données utilisateur:', error);
+    console.error('Erreur lors du chargement du profil:', error);
   }
 });
 
@@ -411,6 +509,61 @@ async function updateProfile() {
   } catch (error) {
     console.error('Erreur lors de la mise à jour du profil:', error);
   }
+}
+
+// Fonction pour annuler l'abonnement
+async function cancelSubscription() {
+  if (!activeSubscription.value) return;
+  
+  try {
+    // Appeler le service d'annulation
+    const result = await cancelUserSubscription(activeSubscription.value.id);
+    
+    if (result.success) {
+      // Mettre à jour l'interface
+      activeSubscription.value = null;
+      
+      // Mettre à jour les données utilisateur dans le localStorage
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        // Supprimer les informations d'abonnement
+        user.subscription = null;
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Mettre à jour le store d'authentification
+        await authStore.fetchCurrentUser();
+      }
+      
+      // Appeler l'API pour mettre à jour l'abonnement dans la base de données
+      try {
+        await apiClient.delete(`/api/user/subscription`);
+      } catch (apiError) {
+        console.warn('API d\'annulation d\'abonnement non disponible:', apiError);
+        // Continuer même si l'API échoue - l'annulation locale a fonctionné
+      }
+      
+      // Afficher un message de succès
+      successMessage.value = 'Votre abonnement a été annulé avec succès';
+      setTimeout(() => {
+        successMessage.value = '';
+      }, 3000);
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'annulation de l\'abonnement:', error);
+    authStore.setError('Erreur lors de l\'annulation de l\'abonnement');
+  }
+}
+
+// Fonction pour formater une date
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('fr-FR', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
+  }).format(date);
 }
 </script>
 

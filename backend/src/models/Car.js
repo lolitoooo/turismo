@@ -36,19 +36,9 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       field: 'category_id'
     },
-    dailyPrice: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      field: 'daily_price'
-    },
-    depositAmount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      field: 'deposit_amount'
-    },
     includedKm: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'included_km'
     },
     extraKmPrice: {
