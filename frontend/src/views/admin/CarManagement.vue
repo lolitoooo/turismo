@@ -23,24 +23,7 @@
         <label>Catégorie:</label>
         <select v-model="filters.category">
           <option value="">Toutes</option>
-          <option value="1">Catégorie 1</option>
-          <option value="2">Catégorie 2</option>
-          <option value="3">Catégorie 3</option>
-          <option value="4">Catégorie 4</option>
-          <option value="5">Catégorie 5</option>
-          <option value="6">Catégorie 6</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Type:</label>
-        <select v-model="filters.type">
-          <option value="">Tous</option>
-          <option value="SUV Compact">SUV Compact</option>
-          <option value="SUV">SUV</option>
-          <option value="SUV Premium">SUV Premium</option>
-          <option value="Luxe">Luxe</option>
-          <option value="Sport">Sport</option>
-          <option value="Supercar">Supercar</option>
+          <option v-for="category in carCategories.value" :key="category.id" :value="category.id">{{ category.name }}</option>
         </select>
       </div>
       <div class="filter-group">
@@ -74,8 +57,6 @@
             <th>Marque</th>
             <th>Modèle</th>
             <th>Catégorie</th>
-            <th>Type</th>
-            <th>Prix/jour</th>
             <th>Disponible</th>
             <th>Actions</th>
           </tr>
@@ -88,9 +69,7 @@
             </td>
             <td>{{ car.brand }}</td>
             <td>{{ car.model }}</td>
-            <td>{{ car.category }}</td>
-            <td>{{ car.type || getCategoryType(car.category) }}</td>
-            <td>{{ formatCurrency(car.pricePerDay) }}</td>
+            <td>{{ getCategoryType(car) }}</td>
             <td>
               <span class="status-badge" :class="car.available ? 'available' : 'unavailable'">
                 {{ car.available ? 'Disponible' : 'Non disponible' }}
@@ -131,6 +110,326 @@
         </button>
       </div>
     </div>
+    
+    <!-- Modal d'ajout de voiture -->
+    <div v-if="showAddCarModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Ajouter un véhicule</h2>
+          <button class="btn-close" @click="closeCarModal">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="submitCarForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="brand">Marque*</label>
+                <input id="brand" v-model="carForm.brand" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="model">Modèle*</label>
+                <input id="model" v-model="carForm.model" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="year">Année*</label>
+                <input id="year" v-model="carForm.year" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="color">Couleur*</label>
+                <input id="color" v-model="carForm.color" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="licensePlate">Plaque d'immatriculation*</label>
+                <input id="licensePlate" v-model="carForm.licensePlate" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="mileage">Kilométrage*</label>
+                <input id="mileage" v-model="carForm.mileage" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="category">Catégorie*</label>
+                <select id="category" v-model="carForm.category" required>
+                  <option v-for="category in carCategories.value" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="seats">Places*</label>
+                <input id="seats" v-model="carForm.seats" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="transmission">Transmission*</label>
+                <select id="transmission" v-model="carForm.transmission" required>
+                  <option value="Automatique">Automatique</option>
+                  <option value="Manuelle">Manuelle</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="fuelType">Carburant*</label>
+                <select id="fuelType" v-model="carForm.fuelType" required>
+                  <option value="Essence">Essence</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Hybride">Hybride</option>
+                  <option value="Électrique">Électrique</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="available">Disponibilité</label>
+                <select id="available" v-model="carForm.available">
+                  <option :value="true">Disponible</option>
+                  <option :value="false">Non disponible</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="features-doors">Portes</label>
+                <input id="features-doors" v-model="carForm.features.doors" type="number" />
+              </div>
+              <div class="form-group">
+                <label for="features-engine">Moteur</label>
+                <input id="features-engine" v-model="carForm.features.engine" type="text" />
+              </div>
+              <div class="form-group">
+                <label for="features-power">Puissance (ch)</label>
+                <input id="features-power" v-model="carForm.features.power" type="number" />
+              </div>
+
+              <div class="form-group full-width">
+                <label for="image">URL de l'image</label>
+                <input id="image" v-model="carForm.image" type="text" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-secondary" @click="closeCarModal">Annuler</button>
+              <button type="submit" class="btn-primary">Enregistrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal d'édition de voiture -->
+    <div v-if="showEditCarModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Modifier le véhicule</h2>
+          <button class="btn-close" @click="closeCarModal">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="submitCarForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="edit-brand">Marque*</label>
+                <input id="edit-brand" v-model="carForm.brand" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-model">Modèle*</label>
+                <input id="edit-model" v-model="carForm.model" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-year">Année*</label>
+                <input id="edit-year" v-model="carForm.year" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-color">Couleur*</label>
+                <input id="edit-color" v-model="carForm.color" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-licensePlate">Plaque d'immatriculation*</label>
+                <input id="edit-licensePlate" v-model="carForm.licensePlate" type="text" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-mileage">Kilométrage*</label>
+                <input id="edit-mileage" v-model="carForm.mileage" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-category">Catégorie*</label>
+                <select id="edit-category" v-model="carForm.category" required>
+                  <option value="1">SUV Compact</option>
+                  <option value="2">SUV</option>
+                  <option value="3">SUV Premium</option>
+                  <option value="4">Luxe</option>
+                  <option value="5">Sport</option>
+                  <option value="6">Supercar</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-seats">Places*</label>
+                <input id="edit-seats" v-model="carForm.seats" type="number" required />
+              </div>
+              <div class="form-group">
+                <label for="edit-transmission">Transmission*</label>
+                <select id="edit-transmission" v-model="carForm.transmission" required>
+                  <option value="Automatique">Automatique</option>
+                  <option value="Manuelle">Manuelle</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-fuelType">Carburant*</label>
+                <select id="edit-fuelType" v-model="carForm.fuelType" required>
+                  <option value="Essence">Essence</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Hybride">Hybride</option>
+                  <option value="Électrique">Électrique</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-available">Disponibilité</label>
+                <select id="edit-available" v-model="carForm.available">
+                  <option :value="true">Disponible</option>
+                  <option :value="false">Non disponible</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-features-doors">Portes</label>
+                <input id="edit-features-doors" v-model="carForm.features.doors" type="number" />
+              </div>
+              <div class="form-group">
+                <label for="edit-features-engine">Moteur</label>
+                <input id="edit-features-engine" v-model="carForm.features.engine" type="text" />
+              </div>
+              <div class="form-group">
+                <label for="edit-features-power">Puissance (ch)</label>
+                <input id="edit-features-power" v-model="carForm.features.power" type="number" />
+              </div>
+
+              <div class="form-group full-width">
+                <label for="edit-image">URL de l'image</label>
+                <input id="edit-image" v-model="carForm.image" type="text" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-secondary" @click="closeCarModal">Annuler</button>
+              <button type="submit" class="btn-primary">Mettre à jour</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de détails de voiture -->
+    <div v-if="showCarDetailsModal && selectedCar" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>{{ selectedCar.brand }} {{ selectedCar.model }}</h2>
+          <button class="btn-close" @click="showCarDetailsModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="car-details">
+            <div class="car-details-image">
+              <img :src="getCarImage(selectedCar)" :alt="`${selectedCar.brand} ${selectedCar.model}`" />
+            </div>
+            <div class="car-details-info">
+              <div class="detail-row">
+                <span class="detail-label">ID:</span>
+                <span class="detail-value">{{ selectedCar.id }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Marque:</span>
+                <span class="detail-value">{{ selectedCar.brand }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Modèle:</span>
+                <span class="detail-value">{{ selectedCar.model }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Année:</span>
+                <span class="detail-value">{{ selectedCar.year }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Couleur:</span>
+                <span class="detail-value">{{ selectedCar.color }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Plaque:</span>
+                <span class="detail-value">{{ selectedCar.licensePlate }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Kilométrage:</span>
+                <span class="detail-value">{{ selectedCar.mileage }} km</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Catégorie:</span>
+                <span class="detail-value">{{ getCategoryType(selectedCar) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Places:</span>
+                <span class="detail-value">{{ selectedCar.seats }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Transmission:</span>
+                <span class="detail-value">{{ selectedCar.transmission }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Carburant:</span>
+                <span class="detail-value">{{ selectedCar.fuelType }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Disponibilité:</span>
+                <span class="detail-value" :class="selectedCar.available ? 'available' : 'unavailable'">
+                  {{ selectedCar.available ? 'Disponible' : 'Non disponible' }}
+                </span>
+              </div>
+              <div class="detail-row full-width">
+                <span class="detail-label">Description:</span>
+                <p class="detail-value description">{{ selectedCar.description || 'Aucune description disponible' }}</p>
+              </div>
+              <div class="detail-row full-width" v-if="selectedCar.features">
+                <span class="detail-label">Caractéristiques:</span>
+                <div class="features-list">
+                  <div v-if="selectedCar.features.seats" class="feature-item">
+                    <span class="feature-label">Places:</span>
+                    <span class="feature-value">{{ selectedCar.features.seats }}</span>
+                  </div>
+                  <div v-if="selectedCar.features.doors" class="feature-item">
+                    <span class="feature-label">Portes:</span>
+                    <span class="feature-value">{{ selectedCar.features.doors }}</span>
+                  </div>
+                  <div v-if="selectedCar.features.transmission" class="feature-item">
+                    <span class="feature-label">Transmission:</span>
+                    <span class="feature-value">{{ selectedCar.features.transmission }}</span>
+                  </div>
+                  <div v-if="selectedCar.features.engine" class="feature-item">
+                    <span class="feature-label">Moteur:</span>
+                    <span class="feature-value">{{ selectedCar.features.engine }}</span>
+                  </div>
+                  <div v-if="selectedCar.features.power" class="feature-item">
+                    <span class="feature-label">Puissance:</span>
+                    <span class="feature-value">{{ selectedCar.features.power }} ch</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-secondary" @click="showCarDetailsModal = false">Fermer</button>
+            <button class="btn-primary" @click="editCar(selectedCar); showCarDetailsModal = false">Modifier</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmation de suppression -->
+    <div v-if="showDeleteModal && selectedCar" class="modal">
+      <div class="modal-content modal-sm">
+        <div class="modal-header">
+          <h2>Confirmer la suppression</h2>
+          <button class="btn-close" @click="showDeleteModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Êtes-vous sûr de vouloir supprimer le véhicule {{ selectedCar.brand }} {{ selectedCar.model }} ?</p>
+          <div class="modal-actions">
+            <button class="btn-secondary" @click="showDeleteModal = false">Annuler</button>
+            <button class="btn-danger" @click="deleteCar">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -169,6 +468,43 @@ const currentPage = ref(1);
 const totalPages = ref(1);
 const itemsPerPage = ref(10);
 
+// État des catégories de voitures
+const carCategories = ref([]);
+const categoryTypeMap = ref({
+  1: 'SUV Compact',
+  2: 'SUV',
+  3: 'SUV Premium',
+  4: 'Luxe',
+  5: 'Sport',
+  6: 'Supercar'
+});
+
+// Fonction pour récupérer les catégories de voitures depuis le backend
+async function fetchCarCategories() {
+  try {
+    // Récupérer directement depuis /api/categories car /api/car-categories n'existe pas
+    const response = await api.get('/api/categories');
+    
+    if (response && response.data && response.data.categories) {
+      carCategories.value = response.data.categories;
+      
+      // Mettre à jour le mapping des catégories
+      const newCategoryMap = {};
+      carCategories.value.forEach(category => {
+        newCategoryMap[category.id] = category.name;
+      });
+      categoryTypeMap.value = newCategoryMap;
+      console.log('Catégories récupérées:', carCategories.value);
+      console.log('Mapping des catégories:', categoryTypeMap.value);
+    } else {
+      console.warn('Aucune catégorie trouvée dans la réponse');
+    }
+  } catch (err) {
+    console.error('Erreur lors de la récupération des catégories:', err);
+    // En cas d'erreur, on garde le mapping statique par défaut
+  }
+}
+
 // État des filtres
 const filters = ref({
   search: '',
@@ -188,9 +524,19 @@ const selectedCar = ref(null);
 const carForm = ref({
   brand: '',
   model: '',
+  year: new Date().getFullYear(),
+  color: 'Noir',
+  licensePlate: '',
+  mileage: 0,
   category: 1,
   type: '',
-  pricePerDay: 0,
+  dailyPrice: 0,  // Requis par le backend même si non affiché
+  depositAmount: 0,
+  includedKm: 0,
+  extraKmPrice: 0,
+  seats: 5,
+  transmission: 'Automatique',
+  fuelType: 'Essence',
   available: true,
   description: '',
   features: {
@@ -203,34 +549,36 @@ const carForm = ref({
   image: ''
 });
 
-// Mapping des catégories vers les types
-const categoryTypeMap = {
-  1: 'SUV Compact',
-  2: 'SUV',
-  3: 'SUV Premium',
-  4: 'Luxe',
-  5: 'Sport',
-  6: 'Supercar'
-};
-
 // Récupérer les voitures
 async function fetchCars() {
   loading.value = true;
   error.value = null;
   
   try {
-    const response = await api.get('/api/admin/cars', {
+    // Utiliser l'API standard des voitures avec le rôle admin
+    const response = await api.get('/api/cars', {
       params: {
         page: currentPage.value,
         limit: itemsPerPage.value
       }
     });
     
-    cars.value = response.data.cars;
-    totalPages.value = Math.ceil(response.data.total / itemsPerPage.value);
+    // Vérifier si la réponse contient un tableau de voitures ou un objet avec une propriété cars
+    if (Array.isArray(response.data)) {
+      cars.value = response.data;
+      totalPages.value = Math.ceil(cars.value.length / itemsPerPage.value);
+    } else if (response.data.cars) {
+      cars.value = response.data.cars;
+      totalPages.value = Math.ceil(response.data.total || cars.value.length / itemsPerPage.value);
+    } else {
+      cars.value = [];
+      totalPages.value = 1;
+    }
+    
+    console.log('Voitures récupérées:', cars.value);
   } catch (err) {
     error.value = 'Erreur lors de la récupération des véhicules';
-    console.error(err);
+    console.error('Erreur fetchCars:', err);
   } finally {
     loading.value = false;
   }
@@ -238,32 +586,41 @@ async function fetchCars() {
 
 // Initialiser les données au chargement du composant
 onMounted(async () => {
+  // Récupérer les catégories de voitures d'abord
+  await fetchCarCategories();
+  // Puis récupérer les voitures
   await fetchCars();
 });
 
 // Filtrer les voitures
 const filteredCars = computed(() => {
-  return cars.value.filter(car => {
-    // Filtre de recherche
+  // Filtrer d'abord
+  const filtered = cars.value.filter(car => {
+    // Filtre de recherche (insensible à la casse)
     const searchMatch = filters.value.search === '' || 
-      car.brand.toLowerCase().includes(filters.value.search.toLowerCase()) ||
-      car.model.toLowerCase().includes(filters.value.search.toLowerCase());
+      (car.brand && car.brand.toLowerCase().includes(filters.value.search.toLowerCase())) ||
+      (car.model && car.model.toLowerCase().includes(filters.value.search.toLowerCase()));
     
-    // Filtre de catégorie
+    // Filtre de catégorie (conversion en string pour comparaison)
     const categoryMatch = filters.value.category === '' || 
-      car.category.toString() === filters.value.category;
+      (car.category !== undefined && car.category.toString() === filters.value.category);
     
-    // Filtre de type
+    // Filtre de type (vérifier le type direct ou le type dérivé de la catégorie)
     const typeMatch = filters.value.type === '' || 
       (car.type && car.type.toLowerCase() === filters.value.type.toLowerCase()) ||
-      (getCategoryType(car.category) === filters.value.type);
+      (car.category && getCategoryType(car.category) === filters.value.type);
     
     // Filtre de disponibilité
     const availableMatch = filters.value.available === '' || 
-      (filters.value.available === 'true' && car.available) ||
-      (filters.value.available === 'false' && !car.available);
+      (filters.value.available === 'true' && car.available === true) ||
+      (filters.value.available === 'false' && car.available === false);
     
     return searchMatch && categoryMatch && typeMatch && availableMatch;
+  });
+  
+  // Puis trier par ID par défaut (ordre croissant)
+  return filtered.sort((a, b) => {
+    return a.id - b.id;
   });
 });
 
@@ -291,18 +648,50 @@ function changePage(page) {
 }
 
 // Obtenir le type de véhicule en fonction de la catégorie
-function getCategoryType(category) {
-  return categoryTypeMap[category] || 'Non spécifié';
+function getCategoryType(car) {
+  // Si car est un objet voiture complet avec une relation category
+  if (car && typeof car === 'object' && car.category && car.category.name) {
+    return car.category.name;
+  }
+  
+  // Si car est un ID de catégorie
+  if (car && typeof car === 'number' || typeof car === 'string') {
+    const categoryId = parseInt(car);
+    return categoryTypeMap.value[categoryId] || 'Non spécifié';
+  }
+  
+  return 'Non spécifié';
 }
 
 // Obtenir l'image de la voiture
 function getCarImage(car) {
-  // Gérer le cas spécial de la Lamborghini Aventador SVJ
-  if (car.brand === 'Lamborghini' && car.model === 'Aventador SVJ') {
+  // Vérifier si la voiture a un champ images JSON avec une valeur
+  if (car.images && typeof car.images === 'object') {
+    // Si c'est un objet JSON, utiliser la première image disponible
+    const imageNames = Object.values(car.images);
+    if (imageNames.length > 0) {
+      try {
+        return require(`@/assets/images/${imageNames[0]}`);
+      } catch (e) {
+        console.warn(`Image ${imageNames[0]} non trouvée dans le JSON images`);
+      }
+    }
+  }
+  
+  // Si le champ images est une chaîne JSON, essayer de la parser
+  if (car.images && typeof car.images === 'string' && car.images.trim() !== '') {
     try {
-      return require('@/assets/images/lamborghini_aventador_svj_home.webp');
+      const parsedImages = JSON.parse(car.images);
+      const imageNames = Object.values(parsedImages);
+      if (imageNames.length > 0) {
+        try {
+          return require(`@/assets/images/${imageNames[0]}`);
+        } catch (e) {
+          console.warn(`Image ${imageNames[0]} non trouvée dans le JSON images parsé`);
+        }
+      }
     } catch (e) {
-      console.warn('Image spéciale non trouvée pour Lamborghini Aventador SVJ');
+      console.warn('Erreur lors du parsing du JSON images:', e);
     }
   }
   
@@ -324,29 +713,21 @@ function getCarImage(car) {
     const imageName = `${car.brand.toLowerCase()}_${car.model.toLowerCase().replace(/ /g, '_')}_home.webp`;
     return require(`@/assets/images/${imageName}`);
   } catch (e) {
-    console.warn(`Image ${car.brand}_${car.model} non trouvée selon la convention de nommage`);
+    // Si l'image n'existe pas, retourner une image par défaut selon la catégorie
+    const defaultImages = {
+      1: 'audi_rsq3_home.webp',
+      2: 'audi_q7_home.webp',
+      3: 'audi_q8_home.webp',
+      4: 'mercedes_classe_s_home.webp',
+      5: 'porsche_911_home.webp',
+      6: 'lamborghini_aventador_svj_home.webp'
+    };
     
-    // Essayer avec une convention alternative sans le suffixe _home
     try {
-      const alternativeImageName = `${car.brand.toLowerCase()}_${car.model.toLowerCase().replace(/ /g, '_')}.webp`;
-      return require(`@/assets/images/${alternativeImageName}`);
+      return require(`@/assets/images/${defaultImages[car.category] || defaultImages[1]}`);
     } catch (e) {
-      // Si l'image n'existe pas, retourner une image par défaut selon la catégorie
-      const defaultImages = {
-        1: 'audi_rsq3_home.webp',
-        2: 'audi_q7_home.webp',
-        3: 'audi_q8_home.webp',
-        4: 'mercedes_classe_s_home.webp',
-        5: 'porsche_911_home.webp',
-        6: 'lamborghini_aventador_svj_home.webp'
-      };
-      
-      try {
-        return require(`@/assets/images/${defaultImages[car.category] || defaultImages[1]}`);
-      } catch (e) {
-        // Fallback final
-        return require('@/assets/images/audi_rsq3_home.webp');
-      }
+      // Fallback final
+      return require('@/assets/images/audi_rsq3_home.webp');
     }
   }
 }
@@ -355,14 +736,44 @@ function getCarImage(car) {
 function editCar(car) {
   selectedCar.value = car;
   
-  // Préparer le formulaire avec les données de la voiture
+  console.log('Données de la voiture à éditer:', car);
+  
+  let imageUrl = '';
+  // Vérifier si car.images existe et est une chaîne JSON valide
+  if (car.images && typeof car.images === 'string') {
+    try {
+      const parsedImages = JSON.parse(car.images);
+      if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+        imageUrl = parsedImages[0];
+      }
+    } catch (e) {
+      console.warn('Erreur de parsing JSON pour les images:', e);
+    }
+  } else if (car.images && Array.isArray(car.images) && car.images.length > 0) {
+    // Si car.images est déjà un tableau
+    imageUrl = car.images[0];
+  } else if (car.image) {
+    imageUrl = car.image;
+  }
+  
   carForm.value = {
-    brand: car.brand,
-    model: car.model,
-    category: car.category,
-    type: car.type || getCategoryType(car.category),
-    pricePerDay: car.pricePerDay,
-    available: car.available,
+    brand: car.brand || '',
+    model: car.model || '',
+    year: car.year || new Date().getFullYear(),
+    color: car.color || 'Noir',
+    licensePlate: car.licensePlate || '',
+    mileage: car.mileage || 0,
+    // Utiliser l'ID de catégorie à partir de la relation category ou categoryId
+    category: car.categoryId || (car.category && car.category.id) || 1,
+    type: car.type || '',
+    dailyPrice: car.dailyPrice || 0,
+    depositAmount: car.depositAmount || 0,
+    includedKm: car.includedKm || 0,
+    extraKmPrice: car.extraKmPrice || 0,
+    seats: car.seats || 5,
+    transmission: car.transmission || 'Automatique',
+    fuelType: car.fuelType || 'Essence',
+    available: car.isAvailable !== undefined ? car.isAvailable : true,
     description: car.description || '',
     features: car.features ? { ...car.features } : {
       seats: 5,
@@ -371,7 +782,7 @@ function editCar(car) {
       engine: 'Essence',
       power: 0
     },
-    image: car.image || ''
+    image: imageUrl || car.image || ''
   };
   
   showEditCarModal.value = true;
@@ -394,13 +805,14 @@ async function deleteCar() {
   if (!selectedCar.value) return;
   
   try {
-    await api.delete(`/api/admin/cars/${selectedCar.value.id}`);
+    console.log('Suppression de la voiture avec ID:', selectedCar.value.id);
+    await api.delete(`/api/cars/${selectedCar.value.id}`);
     await fetchCars();
     showDeleteModal.value = false;
     selectedCar.value = null;
   } catch (err) {
     error.value = 'Erreur lors de la suppression du véhicule';
-    console.error(err);
+    console.error('Erreur deleteCar:', err);
   }
 }
 
@@ -411,10 +823,19 @@ async function submitCarForm() {
     const carData = {
       brand: carForm.value.brand,
       model: carForm.value.model,
-      category: parseInt(carForm.value.category),
-      type: carForm.value.type,
-      pricePerDay: parseFloat(carForm.value.pricePerDay),
-      available: carForm.value.available,
+      year: parseInt(carForm.value.year),
+      color: carForm.value.color,
+      licensePlate: carForm.value.licensePlate,
+      mileage: parseInt(carForm.value.mileage),
+      categoryId: parseInt(carForm.value.category),
+      dailyPrice: parseFloat(carForm.value.dailyPrice),
+      depositAmount: parseFloat(carForm.value.depositAmount),
+      includedKm: parseInt(carForm.value.includedKm),
+      extraKmPrice: parseFloat(carForm.value.extraKmPrice),
+      seats: parseInt(carForm.value.features.seats),
+      transmission: carForm.value.transmission,
+      fuelType: carForm.value.fuelType,
+      isAvailable: carForm.value.available,
       description: carForm.value.description,
       features: {
         seats: parseInt(carForm.value.features.seats),
@@ -423,15 +844,20 @@ async function submitCarForm() {
         engine: carForm.value.features.engine,
         power: parseInt(carForm.value.features.power)
       },
-      image: carForm.value.image
+      // Ajouter le type comme information supplémentaire dans features
+      type: carForm.value.type || categoryTypeMap.value[parseInt(carForm.value.category)],
+      // Convertir l'image en tableau d'images si ce n'est pas déjà un tableau
+      images: carForm.value.image ? [carForm.value.image] : []
     };
+    
+    console.log('Données de la voiture à envoyer:', carData);
     
     if (showEditCarModal.value) {
       // Mise à jour d'une voiture existante
-      await api.put(`/api/admin/cars/${selectedCar.value.id}`, carData);
+      await api.put(`/api/cars/${selectedCar.value.id}`, carData);
     } else {
       // Création d'une nouvelle voiture
-      await api.post('/api/admin/cars', carData);
+      await api.post('/api/cars', carData);
     }
     
     await fetchCars();
@@ -450,9 +876,19 @@ function closeCarModal() {
   carForm.value = {
     brand: '',
     model: '',
+    year: new Date().getFullYear(),
+    color: 'Noir',
+    licensePlate: '',
+    mileage: 0,
     category: 1,
     type: '',
-    pricePerDay: 0,
+    dailyPrice: 0,
+    depositAmount: 0,
+    includedKm: 0,
+    extraKmPrice: 0,
+    seats: 5,
+    transmission: 'Automatique',
+    fuelType: 'Essence',
     available: true,
     description: '',
     features: {
@@ -749,5 +1185,176 @@ function formatCurrency(amount) {
 
 .btn-danger:hover {
   background-color: #DC2626;
+}
+
+/* Styles pour les modales */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content.modal-sm {
+  max-width: 500px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group.full-width {
+  grid-column: span 2;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+/* Styles pour les détails de voiture */
+.car-details {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 1.5rem;
+}
+
+.car-details-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.car-details-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-row.full-width {
+  grid-column: span 2;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.detail-value {
+  font-size: 1rem;
+  color: #333;
+}
+
+.detail-value.description {
+  margin-top: 0.5rem;
+  white-space: pre-line;
+}
+
+.features-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-label {
+  font-weight: 500;
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.feature-value {
+  font-size: 1rem;
+  color: #333;
 }
 </style>

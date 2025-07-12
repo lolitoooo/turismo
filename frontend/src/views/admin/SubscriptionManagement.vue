@@ -177,59 +177,220 @@
       </div>
     </div>
     
-    <!-- Modal d'ajout d'abonnement utilisateur -->
-    <div class="modal" v-if="showAddUserSubscriptionModal">
+    <!-- Modal de détails d'un type d'abonnement -->
+    <div class="modal" v-if="showSubscriptionDetailsModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Ajouter un abonnement utilisateur</h3>
-          <button class="btn-close" @click="closeNewUserSubscriptionModal">
+          <h3>Détails du type d'abonnement</h3>
+          <button class="btn-close" @click="showSubscriptionDetailsModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body" v-if="selectedSubscription">
+          <div class="detail-item">
+            <span class="detail-label">ID:</span>
+            <span class="detail-value">{{ selectedSubscription.id }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Nom:</span>
+            <span class="detail-value">{{ selectedSubscription.name }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Niveau:</span>
+            <span class="detail-value">{{ selectedSubscription.level }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Prix:</span>
+            <span class="detail-value">{{ formatCurrency(selectedSubscription.price) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Jours par mois:</span>
+            <span class="detail-value">{{ selectedSubscription.daysPerMonth || 0 }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ selectedSubscription.description }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Mis en avant:</span>
+            <span class="detail-value">{{ selectedSubscription.featured ? 'Oui' : 'Non' }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Date de création:</span>
+            <span class="detail-value">{{ formatDate(selectedSubscription.createdAt) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">Dernière mise à jour:</span>
+            <span class="detail-value">{{ formatDate(selectedSubscription.updatedAt) }}</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showSubscriptionDetailsModal = false">Fermer</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal de suppression d'un type d'abonnement -->
+    <div class="modal" v-if="showDeleteSubscriptionModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Confirmer la suppression</h3>
+          <button class="btn-close" @click="showDeleteSubscriptionModal = false">
             <i class="pi pi-times"></i>
           </button>
         </div>
         <div class="modal-body">
-          <div v-if="userSubscriptionsError" class="error-message">
-            {{ userSubscriptionsError }}
+          <p>Êtes-vous sûr de vouloir supprimer ce type d'abonnement ?</p>
+          <p v-if="selectedSubscription">
+            <strong>Nom:</strong> {{ selectedSubscription.name }}<br>
+            <strong>Niveau:</strong> {{ selectedSubscription.level }}<br>
+            <strong>Prix:</strong> {{ formatCurrency(selectedSubscription.price) }}
+          </p>
+          <p class="warning-text">Attention: Cette action est irréversible et supprimera définitivement ce type d'abonnement.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showDeleteSubscriptionModal = false">Annuler</button>
+          <button class="btn-danger" @click="deleteSubscription">Supprimer</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal d'édition d'un type d'abonnement -->
+    <div class="modal" v-if="showEditSubscriptionModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Éditer le type d'abonnement</h3>
+          <button class="btn-close" @click="showEditSubscriptionModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="error" class="error-message">
+            {{ error }}
           </div>
           
           <div class="form-group">
-            <label for="userId">Utilisateur:</label>
-            <select id="userId" v-model="newUserSubscriptionForm.userId" required>
-              <option value="">Sélectionner un utilisateur</option>
-              <option v-for="user in users" :key="user.id" :value="user.id">
-                {{ user.firstName }} {{ user.lastName }} ({{ user.email }})
-              </option>
+            <label for="edit-name">Nom:</label>
+            <input type="text" id="edit-name" v-model="subscriptionForm.name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-level">Niveau:</label>
+            <select id="edit-level" v-model="subscriptionForm.level" required>
+              <option value="1">1 - Starter</option>
+              <option value="2">2 - Urban</option>
+              <option value="3">3 - Executive</option>
+              <option value="4">4 - Prestige</option>
+              <option value="5">5 - Elite</option>
+              <option value="6">6 - Signature</option>
             </select>
           </div>
           
           <div class="form-group">
-            <label for="subscriptionTypeId">Type d'abonnement:</label>
-            <select id="subscriptionTypeId" v-model="newUserSubscriptionForm.subscriptionTypeId" 
-                    @change="updatePrice" required>
-              <option value="">Sélectionner un type d'abonnement</option>
-              <option v-for="type in subscriptionTypes" :key="type.id" :value="type.id">
-                {{ type.name }} - {{ formatCurrency(type.price) }}
-              </option>
+            <label for="edit-price">Prix:</label>
+            <input type="number" id="edit-price" v-model="subscriptionForm.price" step="0.01" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-days">Jours par mois:</label>
+            <input type="number" id="edit-days" v-model="subscriptionForm.daysPerMonth" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="edit-description">Description:</label>
+            <textarea id="edit-description" v-model="subscriptionForm.description" rows="3"></textarea>
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="edit-featured" v-model="subscriptionForm.featured">
+            <label for="edit-featured">Mettre en avant</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showEditSubscriptionModal = false">Annuler</button>
+          <button class="btn-primary" @click="submitSubscriptionForm">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal d'ajout de type d'abonnement -->
+    <div class="modal" v-if="showAddSubscriptionModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Ajouter un type d'abonnement</h3>
+          <button class="btn-close" @click="showAddSubscriptionModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-if="error" class="error-message">
+            {{ error }}
+          </div>
+          
+          <div class="form-group">
+            <label for="name">Nom:</label>
+            <input type="text" id="name" v-model="subscriptionForm.name" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="level">Niveau:</label>
+            <select id="level" v-model="subscriptionForm.level" required>
+              <option value="1">1 - Starter</option>
+              <option value="2">2 - Urban</option>
+              <option value="3">3 - Executive</option>
+              <option value="4">4 - Prestige</option>
+              <option value="5">5 - Elite</option>
+              <option value="6">6 - Signature</option>
             </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="startDate">Date de début:</label>
-            <input type="date" id="startDate" v-model="newUserSubscriptionForm.startDate" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="expiryDate">Date d'expiration:</label>
-            <input type="date" id="expiryDate" v-model="newUserSubscriptionForm.expiryDate" required>
           </div>
           
           <div class="form-group">
             <label for="price">Prix:</label>
-            <input type="number" id="price" v-model="newUserSubscriptionForm.price" step="0.01" required>
+            <input type="number" id="price" v-model="subscriptionForm.price" step="0.01" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="days">Jours par mois:</label>
+            <input type="number" id="days" v-model="subscriptionForm.daysPerMonth" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="description">Description:</label>
+            <textarea id="description" v-model="subscriptionForm.description" rows="3"></textarea>
+          </div>
+          
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="featured" v-model="subscriptionForm.featured">
+            <label for="featured">Mettre en avant</label>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeNewUserSubscriptionModal">Annuler</button>
-          <button class="btn-primary" @click="submitNewUserSubscriptionForm">Ajouter</button>
+          <button class="btn-secondary" @click="showAddSubscriptionModal = false">Annuler</button>
+          <button class="btn-primary" @click="submitNewSubscriptionForm">Ajouter</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal de confirmation d'annulation d'abonnement utilisateur -->
+    <div class="modal" v-if="showCancelUserSubscriptionModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Confirmer l'annulation</h3>
+          <button class="btn-close" @click="showCancelUserSubscriptionModal = false">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Êtes-vous sûr de vouloir annuler cet abonnement utilisateur ?</p>
+          <p v-if="selectedUserSubscription">
+            <strong>Utilisateur:</strong> {{ selectedUserSubscription.user?.firstName }} {{ selectedUserSubscription.user?.lastName }}<br>
+            <strong>Type d'abonnement:</strong> {{ selectedUserSubscription.subscriptionType?.name }}<br>
+            <strong>Date d'expiration:</strong> {{ formatDate(selectedUserSubscription.expiryDate) }}
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="showCancelUserSubscriptionModal = false">Annuler</button>
+          <button class="btn-danger" @click="cancelUserSubscription">Confirmer</button>
         </div>
       </div>
     </div>
@@ -265,11 +426,6 @@
           <div class="form-group">
             <label for="edit-expiryDate">Date d'expiration:</label>
             <input type="date" id="edit-expiryDate" v-model="userSubscriptionForm.expiryDate">
-          </div>
-          
-          <div class="form-group">
-            <label for="edit-price">Prix:</label>
-            <input type="number" id="edit-price" v-model="userSubscriptionForm.price" step="0.01">
           </div>
         </div>
         <div class="modal-footer">
@@ -336,9 +492,11 @@ const filters = ref({
 const showAddSubscriptionModal = ref(false);
 const showEditSubscriptionModal = ref(false);
 const showDeleteModal = ref(false);
+const showDeleteSubscriptionModal = ref(false);
 const showSubscriptionDetailsModal = ref(false);
 const showAddUserSubscriptionModal = ref(false);
 const showEditUserSubscriptionModal = ref(false);
+const showCancelUserSubscriptionModal = ref(false);
 const showCancelSubscriptionModal = ref(false);
 const selectedSubscription = ref(null);
 const selectedUserSubscription = ref(null);
@@ -420,6 +578,119 @@ async function fetchSubscriptionTypes() {
   }
 }
 
+// Afficher les détails d'un type d'abonnement
+function viewSubscriptionDetails(subscription) {
+  selectedSubscription.value = subscription;
+  showSubscriptionDetailsModal.value = true;
+}
+
+// Éditer un type d'abonnement
+function editSubscriptionType(subscription) {
+  selectedSubscription.value = subscription;
+  
+  // Extraire days_per_month des features si disponible
+  let daysPerMonth = 30; // Valeur par défaut
+  if (subscription.features && typeof subscription.features === 'object') {
+    daysPerMonth = subscription.features.days_per_month || 30;
+  } else if (subscription.features && typeof subscription.features === 'string') {
+    try {
+      const features = JSON.parse(subscription.features);
+      daysPerMonth = features.days_per_month || 30;
+    } catch (e) {
+      console.error('Erreur lors du parsing des features:', e);
+    }
+  }
+  
+  subscriptionForm.value = {
+    name: subscription.name,
+    level: subscription.level,
+    price: subscription.price,
+    daysPerMonth: daysPerMonth,
+    description: subscription.description || '',
+    featured: false // Toujours mettre à false pour retirer la mise en avant
+  };
+  showEditSubscriptionModal.value = true;
+}
+
+// Confirmer la suppression d'un type d'abonnement
+function confirmDeleteSubscription(subscription) {
+  selectedSubscription.value = subscription;
+  showDeleteSubscriptionModal.value = true;
+}
+
+// Supprimer un type d'abonnement
+async function deleteSubscription() {
+  try {
+    await api.delete(`/api/admin/subscriptions/${selectedSubscription.value.id}`);
+    await fetchSubscriptionTypes();
+    showDeleteSubscriptionModal.value = false;
+    selectedSubscription.value = null;
+  } catch (err) {
+    error.value = 'Erreur lors de la suppression du type d\'abonnement';
+    console.error(err);
+  }
+}
+
+// Soumettre le formulaire d'édition d'un type d'abonnement
+async function submitSubscriptionForm() {
+  try {
+    // Préparer les données avec le format attendu par l'API
+    const subscriptionData = {
+      name: subscriptionForm.value.name,
+      level: subscriptionForm.value.level,
+      price: subscriptionForm.value.price,
+      description: subscriptionForm.value.description,
+      featured: false, // Toujours mettre à false pour retirer la mise en avant
+      features: JSON.stringify({
+        level: subscriptionForm.value.level,
+        days_per_month: subscriptionForm.value.daysPerMonth
+      })
+    };
+    
+    await api.put(`/api/admin/subscriptions/${selectedSubscription.value.id}`, subscriptionData);
+    await fetchSubscriptionTypes();
+    showEditSubscriptionModal.value = false;
+    selectedSubscription.value = null;
+  } catch (err) {
+    error.value = 'Erreur lors de la mise à jour du type d\'abonnement';
+    console.error(err);
+  }
+}
+
+// Soumettre le formulaire d'ajout d'un nouveau type d'abonnement
+async function submitNewSubscriptionForm() {
+  try {
+    // Préparer les données avec le format attendu par l'API
+    const subscriptionData = {
+      name: subscriptionForm.value.name,
+      level: subscriptionForm.value.level,
+      price: subscriptionForm.value.price,
+      description: subscriptionForm.value.description,
+      featured: false, // Toujours mettre à false pour retirer la mise en avant
+      features: JSON.stringify({
+        level: subscriptionForm.value.level,
+        days_per_month: subscriptionForm.value.daysPerMonth
+      })
+    };
+    
+    await api.post('/api/admin/subscriptions', subscriptionData);
+    await fetchSubscriptionTypes();
+    showAddSubscriptionModal.value = false;
+    // Réinitialiser le formulaire
+    subscriptionForm.value = {
+      name: '',
+      level: 1,
+      price: 0,
+      daysPerMonth: 30,
+      description: '',
+      featured: false
+    };
+  } catch (err) {
+    error.value = 'Erreur lors de l\'ajout du type d\'abonnement';
+    console.error(err);
+  }
+}
+
 // Récupérer les abonnements utilisateurs
 async function fetchUserSubscriptions() {
   loadingUserSubscriptions.value = true;
@@ -496,61 +767,13 @@ function isSubscriptionActive(subscription) {
   return expiryDate > now;
 }
 
-// Éditer un type d'abonnement
-function editSubscriptionType(subscription) {
-  selectedSubscription.value = subscription;
-  subscriptionForm.value = {
-    name: subscription.name,
-    level: subscription.level,
-    price: subscription.price,
-    daysPerMonth: subscription.daysPerMonth,
-    description: subscription.description,
-    featured: subscription.featured,
-    services: subscription.services || [
-      { name: 'Livraison du véhicule', included: false },
-      { name: 'Conciergerie', included: false },
-      { name: 'Hotline dédiée', included: false },
-      { name: 'Nettoyage personnalisé', included: false }
-    ]
-  };
-  showEditSubscriptionModal.value = true;
-}
-
-// Voir les détails d'un type d'abonnement
-function viewSubscriptionDetails(subscription) {
-  selectedSubscription.value = subscription;
-  showSubscriptionDetailsModal.value = true;
-}
-
-// Confirmer la suppression d'un type d'abonnement
-function confirmDeleteSubscription(subscription) {
-  selectedSubscription.value = subscription;
-  showDeleteModal.value = true;
-}
-
-// Supprimer un type d'abonnement
-async function deleteSubscription() {
-  if (!selectedSubscription.value) return;
-  
-  try {
-    await api.delete(`/api/admin/subscriptions/${selectedSubscription.value.id}`);
-    await fetchSubscriptionTypes();
-    showDeleteModal.value = false;
-    selectedSubscription.value = null;
-  } catch (err) {
-    error.value = 'Erreur lors de la suppression du type d\'abonnement';
-    console.error(err);
-  }
-}
-
 // Éditer un abonnement utilisateur
 function editUserSubscription(subscription) {
-  selectedUserSubscription.value = subscription;
+  selectedUserSubscription.value = { ...subscription };
   userSubscriptionForm.value = {
-    userId: subscription.userId,
-    subscriptionTypeId: subscription.subscriptionType.id,
-    startDate: subscription.startDate,
-    expiryDate: subscription.expiryDate,
+    subscriptionTypeId: subscription.subscriptionType.id.toString(),
+    startDate: subscription.startDate.split('T')[0],
+    expiryDate: subscription.expiryDate.split('T')[0],
     price: subscription.price
   };
   showEditUserSubscriptionModal.value = true;
@@ -559,17 +782,18 @@ function editUserSubscription(subscription) {
 // Confirmer l'annulation d'un abonnement utilisateur
 function confirmCancelSubscription(subscription) {
   selectedUserSubscription.value = subscription;
-  showCancelSubscriptionModal.value = true;
+  showCancelUserSubscriptionModal.value = true;
 }
 
 // Annuler un abonnement utilisateur
-async function cancelSubscription() {
+async function cancelUserSubscription() {
   if (!selectedUserSubscription.value) return;
   
   try {
+    // Utiliser la même URL que celle utilisée pour récupérer les abonnements utilisateur
     await api.delete(`/api/admin/user-subscriptions/${selectedUserSubscription.value.id}`);
     await fetchUserSubscriptions();
-    showCancelSubscriptionModal.value = false;
+    showCancelUserSubscriptionModal.value = false;
     selectedUserSubscription.value = null;
   } catch (err) {
     userSubscriptionsError.value = 'Erreur lors de l\'annulation de l\'abonnement';
@@ -577,51 +801,25 @@ async function cancelSubscription() {
   }
 }
 
-// Soumettre le formulaire de type d'abonnement
-async function submitSubscriptionForm() {
-  try {
-    // Préparer les données avec le format attendu par l'API
-    const subscriptionData = {
-      name: subscriptionForm.value.name,
-      level: subscriptionForm.value.level,
-      price: subscriptionForm.value.price,
-      description: subscriptionForm.value.description,
-      features: {
-        level: subscriptionForm.value.level,
-        days_per_month: subscriptionForm.value.daysPerMonth,
-        featured: subscriptionForm.value.featured,
-        delivery_included: subscriptionForm.value.services[0].included,
-        concierge_included: subscriptionForm.value.services[1].included,
-        hotline_included: subscriptionForm.value.services[2].included,
-        cleaning_included: subscriptionForm.value.services[3].included
-      }
-    };
-    
-    if (showEditSubscriptionModal.value) {
-      // Mise à jour d'un type d'abonnement existant
-      await api.put(`/api/admin/subscriptions/${selectedSubscription.value.id}`, subscriptionData);
-    } else {
-      // Création d'un nouveau type d'abonnement
-      await api.post('/api/admin/subscriptions', subscriptionData);
-    }
-    
-    await fetchSubscriptionTypes();
-    closeSubscriptionModal();
-  } catch (err) {
-    error.value = 'Erreur lors de l\'enregistrement du type d\'abonnement';
-    console.error(err);
-  }
-}
-
 // Soumettre le formulaire d'abonnement utilisateur
 async function submitUserSubscriptionForm() {
   try {
+    // Trouver le type d'abonnement sélectionné pour obtenir son prix
+    const selectedType = subscriptionTypes.value.find(
+      type => type.id.toString() === userSubscriptionForm.value.subscriptionTypeId.toString()
+    );
+
+    if (!selectedType) {
+      userSubscriptionsError.value = 'Type d\'abonnement invalide';
+      return;
+    }
+    
     // Formater les données pour l'API
     const formData = {
       subscriptionTypeId: parseInt(userSubscriptionForm.value.subscriptionTypeId),
       startDate: userSubscriptionForm.value.startDate,
       expiryDate: userSubscriptionForm.value.expiryDate,
-      price: parseFloat(userSubscriptionForm.value.price)
+      price: selectedType.price // Utiliser le prix du type d'abonnement
     };
     
     await api.put(`/api/admin/user-subscriptions/${selectedUserSubscription.value.id}`, formData);
@@ -644,13 +842,23 @@ async function submitNewUserSubscriptionForm() {
       return;
     }
 
+    // Trouver le type d'abonnement sélectionné pour obtenir son prix
+    const selectedType = subscriptionTypes.value.find(
+      type => type.id.toString() === newUserSubscriptionForm.value.subscriptionTypeId.toString()
+    );
+
+    if (!selectedType) {
+      userSubscriptionsError.value = 'Type d\'abonnement invalide';
+      return;
+    }
+
     // Formater les données pour l'API
     const formData = {
       userId: parseInt(newUserSubscriptionForm.value.userId),
       subscriptionTypeId: parseInt(newUserSubscriptionForm.value.subscriptionTypeId),
       startDate: newUserSubscriptionForm.value.startDate,
       expiryDate: newUserSubscriptionForm.value.expiryDate,
-      price: parseFloat(newUserSubscriptionForm.value.price) || 0
+      price: selectedType.price // Utiliser le prix du type d'abonnement
     };
     
     await api.post('/api/admin/user-subscriptions', formData);
