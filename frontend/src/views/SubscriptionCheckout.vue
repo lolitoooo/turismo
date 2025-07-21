@@ -86,9 +86,6 @@
                   <p class="stripe-text">
                     Vous serez redirigé vers Stripe, notre partenaire de paiement sécurisé, pour finaliser votre abonnement.
                   </p>
-                  <div class="payment-methods">
-                    <img src="@/assets/images/payment-methods.png" alt="Méthodes de paiement" />
-                  </div>
                 </div>
                 
                 <div class="form-group checkbox">
@@ -221,9 +218,9 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getSubscriptionById, subscribeToSubscription, saveActiveSubscription } from '@/services/subscriptionService';
-import { createCheckoutSession, redirectToCheckout, checkSessionStatus } from '@/services/stripeService';
-import { apiClient } from '@/services/api.service';
+import { getSubscriptionById } from '@/services/subscriptionService';
+import { createCheckoutSession, redirectToCheckout } from '@/services/stripeService';
+import apiClient from '@/services/api.service';
 import { useAuthStore } from '@/stores/auth';
 
 export default {
@@ -267,6 +264,8 @@ export default {
           
           // Pré-remplir le formulaire avec les données de l'utilisateur du store
           if (authStore.user) {
+            // La vérification du permis de conduire a été retirée pour permettre l'accès direct à la page de paiement
+            
             formData.value = {
               ...formData.value,
               firstName: authStore.user.firstName || '',
@@ -282,6 +281,7 @@ export default {
             if (userJson) {
               try {
                 const user = JSON.parse(userJson)
+                
                 formData.value = {
                   ...formData.value,
                   firstName: user.firstName || '',
@@ -354,11 +354,8 @@ export default {
       processing.value = true
       
       try {
-        // Vérifier si l'utilisateur est connecté
-        const userJson = localStorage.getItem('user')
-        const authToken = localStorage.getItem('token')
-        
-        if (!userJson || !authToken) {
+        // Vérifier si l'utilisateur est connecté via le store d'authentification
+        if (!authStore.isAuthenticated || !authStore.user) {
           // Rediriger vers la page de connexion avec un retour à cette page
           localStorage.setItem('redirectAfterLogin', `/subscription-checkout/${subscriptionId.value}`)
           router.push('/login')
@@ -367,16 +364,19 @@ export default {
           return
         }
         
-        const user = JSON.parse(userJson)
-        
+        // Utiliser l'utilisateur du store d'authentification
+        const user = authStore.user
+        console.log('User from auth store:', user)
         // Créer une session de paiement Stripe
-        const { sessionId } = await createCheckoutSession(subscriptionId.value, {
+        const { sessionId, url } = await createCheckoutSession(subscriptionId.value, {
           firstName: formData.value.firstName,
           lastName: formData.value.lastName,
           email: formData.value.email,
           phone: formData.value.phone,
           userId: user.id
         })
+        
+        console.log('Session Stripe créée avec succès:', { sessionId, url })
         
         // Stocker les informations nécessaires dans le localStorage pour le traitement après paiement
         localStorage.setItem('lastPaymentSessionId', sessionId);
@@ -389,13 +389,17 @@ export default {
           userId: user.id
         }));
         
-        // Construire les URLs de redirection
-        const successUrl = `${window.location.origin}/payment/success`;
-        const cancelUrl = `${window.location.origin}/subscriptions/${subscriptionId.value}/checkout`;
-        
-        // Rediriger vers la page de paiement Stripe avec les options de redirection
-        // Cette fonction va rediriger l'utilisateur vers Stripe, donc le code suivant ne sera pas exécuté
-        await redirectToCheckout(sessionId, { successUrl, cancelUrl })
+        // Rediriger directement vers l'URL Stripe retournée par l'API
+        if (url) {
+          console.log('Redirection directe vers l\'URL Stripe:', url);
+          window.location.href = url;
+        } else {
+          // Fallback: utiliser la fonction redirectToCheckout
+          console.log('URL Stripe non disponible, utilisation de la fonction redirectToCheckout');
+          const successUrl = `${window.location.origin}/payment/success`;
+          const cancelUrl = `${window.location.origin}/subscriptions/${subscriptionId.value}/checkout`;
+          await redirectToCheckout(sessionId, { successUrl, cancelUrl });
+        }
         
         // Le code ci-dessous ne sera jamais exécuté en raison de la redirection
         // Il est conservé pour référence

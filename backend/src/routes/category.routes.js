@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const categoryController = require('../controllers/category.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const validateRequest = require('../middlewares/validateRequest');
 
@@ -22,7 +22,7 @@ router.get(
 );
 
 // Routes protégées
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 // Créer une nouvelle catégorie (admin uniquement)
 router.post(

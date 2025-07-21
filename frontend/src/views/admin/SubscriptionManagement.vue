@@ -33,7 +33,6 @@
             <th>Prix</th>
             <th>Jours/mois</th>
             <th>Description</th>
-            <th>Mis en avant</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -45,11 +44,6 @@
             <td>{{ formatCurrency(subscription.price) }}</td>
             <td>{{ subscription.daysPerMonth }}</td>
             <td class="description-cell">{{ subscription.description }}</td>
-            <td>
-              <span class="badge" :class="subscription.featured ? 'featured' : 'not-featured'">
-                {{ subscription.featured ? 'Oui' : 'Non' }}
-              </span>
-            </td>
             <td class="actions">
               <button class="btn-icon" @click="editSubscriptionType(subscription)">
                 <i class="pi pi-pencil"></i>
@@ -212,10 +206,6 @@
             <span class="detail-value">{{ selectedSubscription.description }}</span>
           </div>
           <div class="detail-item">
-            <span class="detail-label">Mis en avant:</span>
-            <span class="detail-value">{{ selectedSubscription.featured ? 'Oui' : 'Non' }}</span>
-          </div>
-          <div class="detail-item">
             <span class="detail-label">Date de création:</span>
             <span class="detail-value">{{ formatDate(selectedSubscription.createdAt) }}</span>
           </div>
@@ -300,11 +290,6 @@
             <label for="edit-description">Description:</label>
             <textarea id="edit-description" v-model="subscriptionForm.description" rows="3"></textarea>
           </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="edit-featured" v-model="subscriptionForm.featured">
-            <label for="edit-featured">Mettre en avant</label>
-          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" @click="showEditSubscriptionModal = false">Annuler</button>
@@ -357,11 +342,6 @@
           <div class="form-group">
             <label for="description">Description:</label>
             <textarea id="description" v-model="subscriptionForm.description" rows="3"></textarea>
-          </div>
-          
-          <div class="form-group checkbox-group">
-            <input type="checkbox" id="featured" v-model="subscriptionForm.featured">
-            <label for="featured">Mettre en avant</label>
           </div>
         </div>
         <div class="modal-footer">
@@ -640,7 +620,7 @@ async function submitSubscriptionForm() {
       level: subscriptionForm.value.level,
       price: subscriptionForm.value.price,
       description: subscriptionForm.value.description,
-      featured: false, // Toujours mettre à false pour retirer la mise en avant
+      featured: false,
       features: JSON.stringify({
         level: subscriptionForm.value.level,
         days_per_month: subscriptionForm.value.daysPerMonth

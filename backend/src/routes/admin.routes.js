@@ -3,7 +3,7 @@ const userController = require('../controllers/user.controller');
 const adminController = require('../controllers/admin.controller');
 const subscriptionController = require('../controllers/subscription.controller');
 const carController = require('../controllers/car.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const { query, body, param } = require('express-validator');
 const validateRequest = require('../middlewares/validateRequest');
@@ -11,7 +11,7 @@ const validateRequest = require('../middlewares/validateRequest');
 const router = express.Router();
 
 // Middleware d'authentification et vérification du rôle admin pour toutes les routes
-router.use(authMiddleware);
+router.use(authenticateJWT);
 router.use(roleMiddleware(['admin']));
 
 // Routes pour la gestion des utilisateurs (admin uniquement)

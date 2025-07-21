@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const userSubscriptionController = require('../controllers/userSubscription.controller');
-const { authenticateJWT } = require('../middleware/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 
 /**
  * Routes pour la gestion des abonnements utilisateur

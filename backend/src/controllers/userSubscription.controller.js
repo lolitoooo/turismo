@@ -12,6 +12,16 @@ const userSubscriptionController = {
     try {
       const { userId, subscriptionId } = req.body;
       
+      // Vérification de sécurité : l'utilisateur authentifié doit être celui pour lequel on souscrit
+      // ou un administrateur
+      if (req.user.id !== parseInt(userId) && req.user.role?.name !== 'admin') {
+        logger.warn(`Tentative d'accès non autorisé: l'utilisateur ${req.user.id} essaie de souscrire pour l'utilisateur ${userId}`);
+        return res.status(403).json({ 
+          success: false,
+          message: 'Vous n\'êtes pas autorisé à souscrire un abonnement pour cet utilisateur' 
+        });
+      }
+      
       // Vérification de l'existence de l'utilisateur
       const user = await User.findByPk(userId);
       if (!user) {

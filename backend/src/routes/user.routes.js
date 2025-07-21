@@ -1,14 +1,14 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const userController = require('../controllers/user.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const validateRequest = require('../middlewares/validateRequest');
 
 const router = express.Router();
 
 // Middleware d'authentification pour toutes les routes
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 // Routes du profil utilisateur
 router.get('/profile', userController.getProfile);

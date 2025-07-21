@@ -54,7 +54,11 @@ export async function getSubscriptions() {
 export async function getSubscriptionById(id) {
   try {
     const subscriptions = await getSubscriptions();
-    return subscriptions.find(subscription => subscription.id === id) || null;
+    console.log('Abonnements reçus:', subscriptions);
+    // Convertir l'ID en nombre pour la comparaison
+    const numericId = parseInt(id, 10);
+    console.log('Recherche de l\'abonnement avec ID:', numericId);
+    return subscriptions.find(subscription => subscription.id === numericId) || null;
   } catch (error) {
     console.error(`Erreur lors de la récupération de l'abonnement ${id}:`, error);
     return null;
@@ -74,11 +78,30 @@ export async function subscribeToSubscription(subscriptionId, userData) {
     const authToken = localStorage.getItem('token');
     
     if (!userJson || !authToken) {
-      throw new Error('Utilisateur non connecté');
+      console.warn('Token d\'authentification manquant ou utilisateur non trouvé dans le localStorage');
+      console.log('Tentative d\'utilisation des données utilisateur fournies:', userData);
+      
+      // Si userData contient les informations nécessaires, on les utilise
+      if (userData && userData.userId) {
+        console.log('Utilisation de l\'ID utilisateur fourni dans userData:', userData.userId);
+        // On continue avec les données fournies
+      } else {
+        throw new Error('Utilisateur non connecté et données insuffisantes');
+      }
     }
     
-    const user = JSON.parse(userJson);
-    const userId = user.id;
+    // Si userJson existe, l'utiliser pour récupérer l'ID utilisateur
+    let userId = null;
+    if (userJson) {
+      const user = JSON.parse(userJson);
+      userId = user.id;
+    } else if (userData && userData.userId) {
+      // Sinon, utiliser l'ID utilisateur des données fournies
+      userId = userData.userId;
+      console.log('Utilisation de l\'ID utilisateur des données fournies:', userId);
+    } else {
+      throw new Error('Impossible de déterminer l\'ID utilisateur');
+    }
     
     // Configuration des headers avec le token d'authentification
     const config = {
@@ -87,8 +110,10 @@ export async function subscribeToSubscription(subscriptionId, userData) {
       }
     };
     
+    console.log('Envoi de la requête avec token:', authToken ? 'Token présent' : 'Token manquant');
+    
     // Appeler l'API pour enregistrer l'abonnement
-    const response = await apiClient.post('/userSubscription/user/subscription', {
+    const response = await apiClient.post('/api/userSubscription/user/subscription', {
       userId,
       subscriptionId,
       userData
@@ -145,7 +170,7 @@ export async function cancelSubscription(subscriptionId) {
     
     // Appeler l'API pour annuler l'abonnement
     try {
-      const response = await apiClient.delete(`/userSubscription/user/${userId}/subscription`, config);
+      const response = await apiClient.delete(`/api/userSubscription/user/${userId}/subscription`, config);
       
       // Supprimer l'abonnement actif du localStorage
       localStorage.removeItem('activeSubscription');

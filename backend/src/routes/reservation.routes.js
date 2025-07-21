@@ -1,14 +1,14 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const reservationController = require('../controllers/reservation.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const validateRequest = require('../middlewares/validateRequest');
 
 const router = express.Router();
 
 // Toutes les routes de réservation nécessitent une authentification
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 // Obtenir toutes les réservations (admin et manager)
 router.get(

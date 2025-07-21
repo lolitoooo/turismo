@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param, query } = require('express-validator');
 const carController = require('../controllers/car.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const validateRequest = require('../middlewares/validateRequest');
 
@@ -33,7 +33,7 @@ router.get(
 );
 
 // Routes protégées
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 // Obtenir toutes les voitures (admin et manager)
 router.get(

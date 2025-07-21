@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 /**
  * Middleware d'authentification qui vérifie le token JWT
  */
-module.exports = async (req, res, next) => {
+const authenticateJWT = async (req, res, next) => {
   try {
     // Récupération du token depuis les headers
     const authHeader = req.headers.authorization;
@@ -39,4 +39,8 @@ module.exports = async (req, res, next) => {
     
     return res.status(401).json({ message: 'Accès non autorisé. Token invalide.' });
   }
+};
+
+module.exports = {
+  authenticateJWT
 };

@@ -66,12 +66,14 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { getSubscriptionById, subscribeToSubscription, saveActiveSubscription } from '@/services/subscriptionService';
 import { checkSessionStatus } from '@/services/stripeService';
-import { apiClient } from '@/services/api.service';
+import apiClient from '@/services/api.service';
+import { useAuthStore } from '@/stores/auth';
 
 export default {
   name: 'PaymentSuccess',
   setup() {
     const router = useRouter();
+    const authStore = useAuthStore();
     const loading = ref(true);
     const error = ref(null);
     const success = ref(false);
@@ -96,6 +98,23 @@ export default {
       error.value = null;
       
       try {
+        // Vérifier si l'utilisateur est connecté via le store d'authentification
+        if (!authStore.isAuthenticated) {
+          console.warn('Utilisateur non authentifié dans le store. Tentative de récupération du token...');
+          // Récupérer le token du localStorage directement
+          const token = localStorage.getItem('token');
+          if (token) {
+            console.log('Token trouvé dans localStorage, tentative de restauration de la session...');
+            // Tenter de restaurer la session utilisateur
+            try {
+              await authStore.restoreSession();
+              console.log('Session utilisateur restaurée avec succès');
+            } catch (sessionError) {
+              console.error('Échec de la restauration de la session:', sessionError);
+            }
+          }
+        }
+        
         // Récupérer les informations de paiement du localStorage
         const sessionId = localStorage.getItem('lastPaymentSessionId');
         const subscriptionId = localStorage.getItem('pendingSubscriptionId');
@@ -106,7 +125,6 @@ export default {
           loading.value = false;
           return;
         }
-        
         const pendingData = JSON.parse(pendingDataJson);
         
         // Vérifier le statut du paiement auprès de Stripe
@@ -117,38 +135,33 @@ export default {
           loading.value = false;
           return;
         }
+        console.log('Statut de la session:', sessionStatus);
         
         // Enregistrer la souscription dans la base de données
         const subscriptionResult = await subscribeToSubscription(subscriptionId, pendingData);
-        
+        console.log('Abonnement enregistré:', subscriptionResult);
         if (!subscriptionResult || !subscriptionResult.success) {
           throw new Error('Erreur lors de l\'enregistrement de l\'abonnement');
         }
-        
         // Récupérer les détails de l'abonnement
         const subscriptionData = await getSubscriptionById(subscriptionId);
-        
+        console.log('Abonnement:', subscriptionData);
         if (!subscriptionData) {
           throw new Error('Impossible de récupérer les détails de l\'abonnement');
         }
         
         // Enregistrer l'abonnement actif dans localStorage
         const activeSubscription = saveActiveSubscription(subscriptionData);
+        console.log('Abonnement actif:', activeSubscription);
         
-        // Mettre à jour les données utilisateur avec l'abonnement
-        const userJson = localStorage.getItem('user');
+        // Récupérer les données utilisateur à jour depuis le backend
+        await authStore.fetchCurrentUser();
+        console.log('Utilisateur depuis le store:', authStore.user);
         
-        if (userJson) {
-          const user = JSON.parse(userJson);
-          user.subscription = {
-            id: subscriptionData.id,
-            name: subscriptionData.name,
-            startDate: activeSubscription.startDate,
-            expiryDate: activeSubscription.expiryDate
-          };
-          
-          // Sauvegarder les données utilisateur mises à jour
-          localStorage.setItem('user', JSON.stringify(user));
+        // Si l'utilisateur n'est pas dans le store, essayer de le récupérer à nouveau
+        if (!authStore.user) {
+          console.log('Tentative de vérification du token...');
+          await authStore.checkAuth();
         }
         
         // Mettre à jour les données d'affichage

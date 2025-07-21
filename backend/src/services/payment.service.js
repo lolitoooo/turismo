@@ -22,15 +22,7 @@ const paymentService = {
       logger.info(`Traitement du paiement: ${amount} ${currency} via ${paymentMethod}`);
 
       // En environnement de production, on utiliserait une API réelle (Stripe, PayPal, etc.)
-      if (process.env.NODE_ENV === 'production' && process.env.PAYMENT_API_KEY) {
-        // Ici, on simulerait l'appel à l'API de paiement
-        // const paymentProvider = getPaymentProvider(paymentMethod);
-        // const result = await paymentProvider.createCharge({
-        //   amount,
-        //   currency,
-        //   source: paymentDetails.token,
-        //   description
-        // });
+      if (process.env.NODE_ENV === 'development' && process.env.PAYMENT_API_KEY) {
         
         // Simulation d'une réponse réussie
         return {

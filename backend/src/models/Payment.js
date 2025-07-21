@@ -43,6 +43,12 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       field: 'payment_date'
     },
+    paymentDetails: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'payment_details',
+      comment: 'Informations complètes du paiement Stripe pour la facturation'
+    },
     createdAt: {
       type: DataTypes.DATE,
       field: 'created_at'

@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const subscriptionController = require('../controllers/subscription.controller');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const roleMiddleware = require('../middlewares/role');
 const validateRequest = require('../middlewares/validateRequest');
 
@@ -22,7 +22,7 @@ router.get(
 );
 
 // Routes protégées
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 // Créer un nouveau type d'abonnement (admin uniquement)
 router.post(

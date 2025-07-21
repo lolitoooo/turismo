@@ -1,13 +1,13 @@
 const express = require('express');
 const uploadService = require('../services/upload.service');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const { User } = require('../models');
 const logger = require('../utils/logger');
 
 const router = express.Router();
 
 // Middleware d'authentification pour toutes les routes
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 /**
  * @route POST /api/upload/profile-image

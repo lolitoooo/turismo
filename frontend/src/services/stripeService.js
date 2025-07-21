@@ -1,7 +1,7 @@
-import { apiClient } from './api.service';
+import apiClient from './api.service';
 
-// Clé publique Stripe (fictive pour la démonstration)
-const STRIPE_PUBLIC_KEY = 'pk_live_51PIZXxBu7gPuK7cUok9lkEg5e4uwRPdYvjtmK0gh1olZUPCpG3wxJ6rMBerC4iu8NIKAP33vzSHwWs7Pe5epzyYE00cUuBLbj2';
+// Vérifier que apiClient est bien importé
+console.log('apiClient importé:', apiClient);
 
 /**
  * Crée une session de paiement Stripe pour un abonnement
@@ -20,39 +20,28 @@ export async function createCheckoutSession(subscriptionId, customerData) {
         'Authorization': `Bearer ${authToken}`
       }
     } : {};
-    
+    console.log('Token d\'authentification:', authToken);
     // Construire l'URL de succès pour le retour après paiement
     const successUrl = `${window.location.origin}/payment/success`;
     const cancelUrl = `${window.location.origin}/subscriptions/${subscriptionId}/checkout`;
     
-    // Essayer d'abord d'utiliser l'API backend
-    try {
-      const response = await apiClient.post('/payment/checkout-session', {
-        subscriptionId,
-        userId: customerData.userId,
-        email: customerData.email,
-        successUrl,
-        cancelUrl
-      }, config);
-      
-      if (response && response.data && response.data.sessionId) {
-        console.log('Session Stripe créée avec succès via l\'API');
-        return response.data;
-      }
-    } catch (apiError) {
-      console.warn('API de création de session non disponible, utilisation du mode simulation:', apiError);
+    // Utiliser l'API backend pour créer une vraie session Stripe
+    console.log('Envoi de la requête à /payment/checkout-session avec:', {
+      subscriptionId,
+      customerInfo: customerData
+    });
+    
+    const response = await apiClient.post('/api/payment/checkout-session', {
+      subscriptionId,
+      customerInfo: customerData
+    }, config);
+    console.log('Reponse de l\'API:', response);
+    if (!response || !response.data || !response.data.sessionId) {
+      throw new Error('La réponse de l\'API ne contient pas d\'ID de session Stripe valide');
     }
     
-    // Mode simulation (fallback)
-    console.log('Création d\'une session Stripe simulée');
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      sessionId: 'cs_test_' + Math.random().toString(36).substring(2, 15),
-      simulated: true,
-      successUrl,
-      cancelUrl
-    };
+    console.log('Session Stripe créée avec succès via l\'API:', response.data);
+    return response.data;
   } catch (error) {
     console.error('Erreur lors de la création de la session de paiement:', error);
     throw error;
@@ -69,33 +58,30 @@ export async function redirectToCheckout(sessionId, options = {}) {
   try {
     console.log('Redirection vers Stripe avec sessionId:', sessionId);
     
-    // Récupérer les URLs de succès et d'annulation
-    const successUrl = options.successUrl || `${window.location.origin}/payment/success`;
-    
-    // Construire l'URL de checkout Stripe avec paramètres
-    let stripeUrl = `https://checkout.stripe.com/c/pay/${sessionId}`;
-    
-    // Ajouter les paramètres de redirection pour Stripe
-    // Dans un environnement réel, ces paramètres seraient configurés lors de la création de la session
-    // Ici, nous les simulons pour la démonstration
-    if (sessionId.startsWith('cs_test_')) {
-      // En mode développement, simuler une redirection vers la page de succès après un court délai
-      console.log('Mode développement: Simulation de paiement Stripe');
-      console.log('Redirection vers la page de succès après 2 secondes:', successUrl);
-      
-      setTimeout(() => {
-        window.location.href = successUrl;
-      }, 2000);
-      
-      return { success: true, simulated: true };
-    } else {
-      // En production, rediriger vers Stripe
-      console.log('Redirection vers Stripe:', stripeUrl);
-      window.location.href = stripeUrl;
-      
-      // Cette ligne ne sera jamais exécutée en raison de la redirection
+    // Utiliser directement l'URL fournie si disponible
+    if (options.url) {
+      console.log('Redirection directe vers l\'URL Stripe fournie:', options.url);
+      window.location.href = options.url;
       return { success: true };
     }
+    
+    // Si pas d'URL fournie, récupérer les détails de la session depuis l'API
+    const authToken = localStorage.getItem('token');
+    const config = authToken ? {
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      }
+    } : {};
+    
+    const response = await apiClient.get(`/api/payment/checkout-session/${sessionId}`, config);
+    
+    if (!response || !response.data || !response.data.success || !response.data.session || !response.data.session.url) {
+      throw new Error('Impossible de récupérer l\'URL de la session Stripe');
+    }
+    
+    console.log('URL de session Stripe récupérée via l\'API:', response.data.session.url);
+    window.location.href = response.data.session.url;
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la redirection vers Stripe:', error);
     throw error;
@@ -125,7 +111,7 @@ export async function checkSessionStatus(sessionId) {
     if (!isSimulated) {
       // Essayer d'abord de vérifier via l'API backend
       try {
-        const response = await apiClient.get(`/payment/check-session/${sessionId}`, config);
+        const response = await apiClient.get(`/api/payment/check-session/${sessionId}`, config);
         if (response && response.data) {
           console.log('Statut de session récupéré avec succès via l\'API');
           return response.data;

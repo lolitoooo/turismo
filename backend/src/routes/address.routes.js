@@ -1,13 +1,13 @@
 const express = require('express');
 const { query } = require('express-validator');
 const addressService = require('../services/address.service');
-const authMiddleware = require('../middlewares/auth');
+const { authenticateJWT } = require('../middlewares/auth');
 const validateRequest = require('../middlewares/validateRequest');
 
 const router = express.Router();
 
 // Middleware d'authentification pour toutes les routes
-router.use(authMiddleware);
+router.use(authenticateJWT);
 
 /**
  * @route GET /api/address/search
