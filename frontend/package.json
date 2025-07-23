@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@stripe/stripe-js": "^7.4.0",
+    "@vuepic/vue-datepicker": "^11.0.2",
     "axios": "^1.3.5",
     "core-js": "^3.30.1",
     "pinia": "^2.0.34",

@@ -23,6 +23,12 @@ router.get(
   reservationController.getUserReservations
 );
 
+// Obtenir les dates réservées pour un véhicule spécifique
+router.get(
+  '/car/:carId/reserved-dates',
+  reservationController.getReservedDatesForCar
+);
+
 // Obtenir une réservation par ID
 router.get(
   '/:id',
@@ -58,7 +64,7 @@ router.put(
 );
 
 // Annuler une réservation
-router.post(
+router.delete(
   '/:id/cancel',
   [
     param('id').isInt().withMessage('ID de réservation invalide'),

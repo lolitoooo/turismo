@@ -80,7 +80,10 @@
             </div>
             <div class="stat-content">
               <h3>Abonnement</h3>
-              <p v-if="user?.subscriptionType">{{ user.subscriptionType.name }}</p>
+              <p v-if="subscriptionStore.hasActiveSubscription" class="subscription-active">
+                {{ subscriptionStore.activeSubscription?.name || 'Abonnement actif' }}
+                <span class="subscription-days">({{ subscriptionStore.remainingDays }} jours restants)</span>
+              </p>
               <p v-else class="empty-state">Aucun abonnement actif</p>
             </div>
           </div>
@@ -130,10 +133,12 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useSubscriptionStore } from '../stores/subscription';
 import axios from 'axios';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const subscriptionStore = useSubscriptionStore();
 const user = computed(() => authStore.user);
 
 // Données pour les statistiques
@@ -214,28 +219,30 @@ function calculateProfileCompletion() {
   profileCompletionPercentage.value = Math.round((completedFields.length / fields.length) * 100);
 }
 
-function calculateSubscriptionDays() {
-  if (!user.value?.subscriptionEndDate) {
+async function calculateSubscriptionDays() {
+  try {
+    // Utiliser le store d'abonnement pour récupérer l'abonnement actif
+    await subscriptionStore.fetchActiveSubscription();
+    
+    // Utiliser le getter du store pour obtenir le nombre de jours restants
+    daysUntilSubscriptionEnd.value = subscriptionStore.remainingDays;
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'abonnement actif:', error);
     daysUntilSubscriptionEnd.value = 0;
-    return;
   }
-  
-  const endDate = new Date(user.value.subscriptionEndDate);
-  const today = new Date();
-  const diffTime = endDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  daysUntilSubscriptionEnd.value = diffDays > 0 ? diffDays : 0;
 }
 
 async function fetchUserReservations() {
   try {
-    const response = await axios.get('/api/reservations/user', {
-      headers: { Authorization: `Bearer ${authStore.token}` }
-    });
+    // Utiliser apiClient du service API pour une meilleure gestion des erreurs et de l'authentification
+    const apiClient = (await import('../services/api.service')).default;
+    
+    const response = await apiClient.get('/api/reservations/user');
     
     if (response.data && response.data.reservations) {
+      // Mettre à jour le compteur de réservations
       userReservationsCount.value = response.data.reservations.length;
+      console.log(`Nombre de réservations récupérées: ${userReservationsCount.value}`);
       
       // Trouver la prochaine réservation
       const now = new Date();

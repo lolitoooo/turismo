@@ -226,22 +226,89 @@
             </form>
           </div>
         </div>
+        
+        <!-- Section Mes Réservations -->
+        <div class="profile-section reservations-section">
+          <div class="section-header">
+            <h2>Mes Réservations</h2>
+          </div>
+          
+          <div v-if="loadingReservations" class="loading-container">
+            <div class="spinner"></div>
+            <p>Chargement de vos réservations...</p>
+          </div>
+          
+          <div v-else-if="reservations.length > 0" class="reservations-list">
+            <div v-for="reservation in reservations" :key="reservation.id" class="reservation-card">
+              <div class="reservation-header">
+                <h3>{{ reservation.car ? `${reservation.car.brand} ${reservation.car.model}` : 'Véhicule' }}</h3>
+                <div class="reservation-status" :class="getReservationStatusClass(reservation.status)">
+                  {{ getReservationStatusText(reservation.status) }}
+                </div>
+              </div>
+              
+              <div class="reservation-details">
+                <div class="reservation-detail">
+                  <span class="detail-label">Dates:</span>
+                  <span class="detail-value">{{ formatDate(reservation.startDate) }} - {{ formatDate(reservation.endDate) }}</span>
+                </div>
+                <div class="reservation-detail">
+                  <span class="detail-label">Durée:</span>
+                  <span class="detail-value">{{ calculateDuration(reservation.startDate, reservation.endDate) }} jours</span>
+                </div>
+                <div class="reservation-detail">
+                  <span class="detail-label">Lieu de prise en charge:</span>
+                  <span class="detail-value">{{ reservation.pickupLocation }}</span>
+                </div>
+                <div class="reservation-detail">
+                  <span class="detail-label">Lieu de retour:</span>
+                  <span class="detail-value">{{ reservation.returnLocation }}</span>
+                </div>
+                <div v-if="reservation.specialRequests" class="reservation-detail">
+                  <span class="detail-label">Demandes spéciales:</span>
+                  <span class="detail-value">{{ reservation.specialRequests }}</span>
+                </div>
+                <div class="reservation-detail">
+                  <span class="detail-label">Prix total:</span>
+                  <span class="detail-value">{{ reservation.totalPrice }}€</span>
+                </div>
+              </div>
+              
+              <div class="reservation-actions">
+                <button 
+                  v-if="canCancelReservation(reservation)" 
+                  @click="cancelReservation(reservation.id)" 
+                  class="btn-cancel-reservation"
+                >
+                  Annuler la réservation
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div v-else class="no-reservations">
+            <p>Vous n'avez pas encore de réservations.</p>
+            <router-link to="/cars" class="btn-browse-cars">Parcourir les véhicules</router-link>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import api from '../services/api';
-import { debounce } from 'lodash';
-import { getActiveSubscription, cancelSubscription as cancelUserSubscription, getSubscriptionById } from '@/services/subscriptionService';
-import { apiClient } from '@/services/api.service';
+import { useSubscriptionStore } from '../stores/subscription';
+import apiClient from '../services/api.service';
+import reservationService from '../services/reservationService';
 import { checkSessionStatus } from '@/services/stripeService';
 import '@/assets/styles/profile.scss';
 
+const router = useRouter();
 const authStore = useAuthStore();
+const subscriptionStore = useSubscriptionStore();
 const profileData = ref({
   firstName: '',
   lastName: '',
@@ -263,7 +330,14 @@ const addressSuggestions = ref([]);
 const isSearching = ref(false);
 const isUploading = ref(false);
 const profileImageUrl = ref('');
-const activeSubscription = ref(null);
+
+// Réservations
+const reservations = ref([]);
+const loadingReservations = ref(false);
+const cancellingReservation = ref(false);
+
+// Données d'abonnement
+const activeSubscription = computed(() => subscriptionStore.activeSubscription);
 
 // Style pour la photo de profil
 const profilePhotoStyle = computed(() => {
@@ -276,62 +350,6 @@ const profilePhotoStyle = computed(() => {
   }
   return {};
 });
-
-// Fonction pour récupérer les détails de l'abonnement depuis le backend
-async function fetchSubscriptionDetails(subscriptionId) {
-  try {
-    // Essayer d'abord de récupérer depuis l'API
-    const response = await apiClient.get(`/api/subscriptions/${subscriptionId}`);
-    if (response && response.data) {
-      return response.data;
-    }
-    
-    // Si l'API échoue, utiliser le service local
-    return await getSubscriptionById(subscriptionId);
-  } catch (error) {
-    console.error('Erreur lors de la récupération des détails de l\'abonnement:', error);
-    // Fallback sur le service local
-    return await getSubscriptionById(subscriptionId);
-  }
-}
-
-// Fonction pour vérifier si le paiement a été validé pour l'abonnement
-async function checkPaymentValidation(userData) {
-  try {
-    // Vérifier si l'utilisateur a des informations d'abonnement
-    if (!userData || !userData.subscription) {
-      return false;
-    }
-    
-    // Récupérer le sessionId du paiement depuis le localStorage
-    const paymentSessionId = localStorage.getItem('lastPaymentSessionId');
-    
-    if (!paymentSessionId) {
-      // Si aucun sessionId n'est trouvé, vérifier si l'abonnement a des dates valides
-      // Cela signifie que l'abonnement a été validé précédemment
-      return !!(userData.subscription.startDate && userData.subscription.expiryDate);
-    }
-    
-    // Vérifier le statut du paiement auprès de Stripe
-    try {
-      const sessionStatus = await checkSessionStatus(paymentSessionId);
-      
-      // Si le statut est 'complete', le paiement a été validé
-      if (sessionStatus && sessionStatus.status === 'complete') {
-        return true;
-      }
-    } catch (error) {
-      console.error('Erreur lors de la vérification du statut de paiement:', error);
-      // En cas d'erreur, vérifier si l'abonnement a des dates valides
-      return !!(userData.subscription.startDate && userData.subscription.expiryDate);
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Erreur lors de la vérification de la validation du paiement:', error);
-    return false;
-  }
-}
 
 // Charger les données du profil au chargement du composant
 onMounted(async () => {
@@ -352,34 +370,14 @@ onMounted(async () => {
         if (profileData.value.profileImage) {
           profileImageUrl.value = `/api/images/profile/${profileData.value.profileImage}`;
         }
-        
-        // Récupérer l'abonnement actif depuis le localStorage
-        const localActiveSubscription = getActiveSubscription();
-        
-        // Vérifier si un paiement a été validé pour l'abonnement
-        const paymentValidated = await checkPaymentValidation(userData);
-        
-        // Ne pas afficher d'abonnement si le paiement n'a pas été validé
-        if (!paymentValidated) {
-          activeSubscription.value = null;
-        }
-        // Si le paiement a été validé et l'utilisateur a un abonnement
-        else if (userData.subscription && userData.subscription.id) {
-          // Récupérer les détails complets de l'abonnement
-          const subscriptionDetails = await fetchSubscriptionDetails(userData.subscription.id);
-          if (subscriptionDetails) {
-            activeSubscription.value = {
-              ...subscriptionDetails,
-              startDate: userData.subscription.startDate,
-              expiryDate: userData.subscription.expiryDate
-            };
-          } else {
-            activeSubscription.value = null;
-          }
-        } else {
-          activeSubscription.value = null;
-        }
       }
+      
+      // Récupérer l'abonnement actif de l'utilisateur
+      await subscriptionStore.fetchActiveSubscription();
+      console.log('Abonnement actif récupéré:', subscriptionStore.activeSubscription);
+      
+      // Récupérer les réservations de l'utilisateur
+      fetchUserReservations();
     }
   } catch (error) {
     console.error('Erreur lors du chargement du profil:', error);
@@ -387,7 +385,7 @@ onMounted(async () => {
 });
 
 // Fonction de recherche d'adresse avec debounce pour limiter les appels API
-const searchAddresses = debounce(async () => {
+const searchAddresses = async () => {
   if (!addressSearch.value || addressSearch.value.length < 3) {
     addressSuggestions.value = [];
     return;
@@ -395,7 +393,7 @@ const searchAddresses = debounce(async () => {
   
   isSearching.value = true;
   try {
-    const response = await api.get('/api/address/search', {
+    const response = await apiClient.get('/api/address/search', {
       params: { q: addressSearch.value }
     });
     
@@ -408,7 +406,7 @@ const searchAddresses = debounce(async () => {
   } finally {
     isSearching.value = false;
   }
-}, 300);
+};
 
 // Fonction pour sélectionner une adresse dans les suggestions
 function selectAddress(suggestion) {
@@ -447,7 +445,7 @@ async function handlePhotoUpload(event) {
     const formData = new FormData();
     formData.append('profileImage', file);
     
-    const response = await api.post('/api/upload/profile-image', formData, {
+    const response = await apiClient.post('/api/upload/profile-image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -513,45 +511,25 @@ async function updateProfile() {
 
 // Fonction pour annuler l'abonnement
 async function cancelSubscription() {
-  if (!activeSubscription.value) return;
-  
-  try {
-    // Appeler le service d'annulation
-    const result = await cancelUserSubscription(activeSubscription.value.id);
-    
-    if (result.success) {
-      // Mettre à jour l'interface
-      activeSubscription.value = null;
+  if (confirm('Êtes-vous sûr de vouloir annuler votre abonnement ? Cette action est irréversible.')) {
+    try {
+      const result = await subscriptionStore.cancelSubscription();
       
-      // Mettre à jour les données utilisateur dans le localStorage
-      const userJson = localStorage.getItem('user');
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        // Supprimer les informations d'abonnement
-        user.subscription = null;
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // Mettre à jour le store d'authentification
+      if (result && result.success) {
+        // Mettre à jour les données utilisateur
         await authStore.fetchCurrentUser();
+        
+        // Afficher un message de succès
+        successMessage.value = 'Votre abonnement a été annulé avec succès.';
+        
+        // Masquer le message après quelques secondes
+        setTimeout(() => {
+          successMessage.value = '';
+        }, 5000);
       }
-      
-      // Appeler l'API pour mettre à jour l'abonnement dans la base de données
-      try {
-        await apiClient.delete(`/api/user/subscription`);
-      } catch (apiError) {
-        console.warn('API d\'annulation d\'abonnement non disponible:', apiError);
-        // Continuer même si l'API échoue - l'annulation locale a fonctionné
-      }
-      
-      // Afficher un message de succès
-      successMessage.value = 'Votre abonnement a été annulé avec succès';
-      setTimeout(() => {
-        successMessage.value = '';
-      }, 3000);
+    } catch (error) {
+      console.error('Erreur lors de l\'annulation de l\'abonnement:', error);
     }
-  } catch (error) {
-    console.error('Erreur lors de l\'annulation de l\'abonnement:', error);
-    authStore.setError('Erreur lors de l\'annulation de l\'abonnement');
   }
 }
 
@@ -564,6 +542,97 @@ function formatDate(dateString) {
     month: '2-digit', 
     year: 'numeric' 
   }).format(date);
+}
+
+// Fonction pour calculer la durée entre deux dates en jours
+function calculateDuration(startDate, endDate) {
+  if (!startDate || !endDate) return 0;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end - start);
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+// Fonction pour récupérer les réservations de l'utilisateur
+async function fetchUserReservations() {
+  loadingReservations.value = true;
+  try {
+    reservations.value = await reservationService.getUserReservations();
+    console.log('Réservations récupérées:', reservations.value);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des réservations:', error);
+  } finally {
+    loadingReservations.value = false;
+  }
+}
+
+// Fonction pour annuler une réservation
+async function cancelReservation(reservationId) {
+  if (confirm('Êtes-vous sûr de vouloir annuler cette réservation ? Cette action est irréversible.')) {
+    cancellingReservation.value = true;
+    try {
+      await reservationService.cancelReservation(reservationId);
+      
+      // Mettre à jour la liste des réservations
+      await fetchUserReservations();
+      
+      // Afficher un message de succès
+      successMessage.value = 'Votre réservation a été annulée avec succès.';
+      
+      // Masquer le message après quelques secondes
+      setTimeout(() => {
+        successMessage.value = '';
+      }, 5000);
+    } catch (error) {
+      console.error('Erreur lors de l\'annulation de la réservation:', error);
+    } finally {
+      cancellingReservation.value = false;
+    }
+  }
+}
+
+// Fonction pour vérifier si une réservation peut être annulée
+function canCancelReservation(reservation) {
+  if (!reservation || !reservation.startDate) return false;
+  
+  // On ne peut annuler que les réservations à venir (pas les réservations passées ou en cours)
+  const today = new Date();
+  const startDate = new Date(reservation.startDate);
+  
+  // On peut annuler si la date de début est dans le futur
+  return startDate > today && reservation.status !== 'cancelled';
+}
+
+// Fonction pour obtenir la classe CSS en fonction du statut de la réservation
+function getReservationStatusClass(status) {
+  switch (status) {
+    case 'confirmed':
+      return 'status-confirmed';
+    case 'pending':
+      return 'status-pending';
+    case 'cancelled':
+      return 'status-cancelled';
+    case 'completed':
+      return 'status-completed';
+    default:
+      return '';
+  }
+}
+
+// Fonction pour obtenir le texte du statut de la réservation
+function getReservationStatusText(status) {
+  switch (status) {
+    case 'confirmed':
+      return 'Confirmée';
+    case 'pending':
+      return 'En attente';
+    case 'cancelled':
+      return 'Annulée';
+    case 'completed':
+      return 'Terminée';
+    default:
+      return status;
+  }
 }
 </script>
 

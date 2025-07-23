@@ -37,6 +37,9 @@ const paymentController = {
       }
       console.log('ID d\'abonnement:', subscriptionId);
       console.log('Utilisateur authentifié:', req.user.id);
+      
+      // La vérification d'abonnement actif a été supprimée pour permettre aux utilisateurs de changer d'abonnement
+      
       // Vérification de l'existence du type d'abonnement
       const subscriptionType = await SubscriptionType.findByPk(subscriptionId);
       if (!subscriptionType) {
@@ -142,10 +145,6 @@ const paymentController = {
     try {
       const { sessionId } = req.params;
       
-      // Dans un environnement réel, nous vérifierions le statut auprès de Stripe
-      // const stripe = require('stripe')(config.stripe.secretKey);
-      // const session = await stripe.checkout.sessions.retrieve(sessionId);
-      
       // Pour l'instant, nous simulons un statut réussi
       res.status(200).json({
         id: sessionId,
@@ -223,7 +222,7 @@ const paymentController = {
       const { subscriptionId, userId } = session.metadata || {};
       
       logger.info(`Traitement du paiement réussi - Session ID: ${session.id}, User ID: ${userId}, Subscription Type ID: ${subscriptionId}`);
-      
+      console.log(`Traitement du paiement réussi - Session ID: ${session.id}, User ID: ${userId}, Subscription Type ID: ${subscriptionId}`);
       if (!userId || !subscriptionId) {
         logger.error('Métadonnées manquantes dans la session Stripe');
         return;

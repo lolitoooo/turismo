@@ -555,3 +555,64 @@ exports.cancelUserSubscription = async (req, res) => {
     return res.status(500).json({ message: 'Erreur serveur lors de l\'annulation de l\'abonnement' });
   }
 };
+
+/**
+ * Récupérer l'abonnement actif d'un utilisateur
+ */
+exports.getUserActiveSubscription = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Vérifier si l'utilisateur existe
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+    
+    // Trouver l'abonnement actif de l'utilisateur
+    const activeSubscription = await Subscription.findOne({
+      where: {
+        userId,
+        status: 'active',
+        expiryDate: { [Op.gt]: new Date() }
+      },
+      include: [{
+        model: SubscriptionType,
+        attributes: ['id', 'name', 'price', 'description', 'features']
+      }]
+    });
+    
+    if (!activeSubscription) {
+      return res.status(404).json({ message: 'Aucun abonnement actif trouvé pour cet utilisateur' });
+    }
+    
+    // Formater les données pour le frontend
+    const subscriptionType = activeSubscription.SubscriptionType;
+    const features = subscriptionType.features ? 
+      (typeof subscriptionType.features === 'string' ? JSON.parse(subscriptionType.features) : subscriptionType.features) : {};
+    
+    const formattedSubscription = {
+      id: subscriptionType.id,
+      name: subscriptionType.name,
+      level: features.level || subscriptionType.id,
+      price: subscriptionType.price,
+      daysPerMonth: features.days_per_month || Math.round(30), // Par défaut 30 jours par mois
+      vehicleAccess: features.vehicle_access || `Accès aux véhicules de catégories 1 à ${features.level || subscriptionType.id}`,
+      startDate: activeSubscription.startDate,
+      expiryDate: activeSubscription.expiryDate,
+      status: activeSubscription.status,
+      autoRenew: activeSubscription.autoRenew,
+      services: [
+        { name: 'Livraison du véhicule', included: features.delivery_included || false },
+        { name: 'Conciergerie', included: features.concierge_included || false },
+        { name: 'Hotline dédiée', included: features.hotline_included || false },
+        { name: 'Nettoyage personnalisé', included: features.cleaning_included || false }
+      ]
+    };
+    
+    return res.status(200).json({ subscription: formattedSubscription });
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'abonnement actif:', error);
+    return res.status(500).json({ message: 'Erreur serveur lors de la récupération de l\'abonnement actif' });
+  }
+};

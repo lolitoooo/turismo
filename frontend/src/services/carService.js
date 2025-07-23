@@ -3,7 +3,7 @@ import { ref } from 'vue';
 
 // Mapping des images locales pour les voitures
 // Cette fonction associe les images locales aux voitures en fonction de leur marque et modèle
-const getCarImage = (car) => {
+export const getCarImage = (car) => {
   try {
     // Cas spécial pour la Lamborghini Aventador SVJ
     if (car.brand === 'Lamborghini' && car.model === 'Aventador SVJ') {

@@ -17,6 +17,7 @@ import PrivacyPolicy from '../views/PrivacyPolicy.vue'
 import FAQ from '../views/FAQ.vue'
 import Subscriptions from '../views/Subscriptions.vue'
 import PaymentSuccess from '../views/PaymentSuccess.vue'
+import Reservations from '../views/Reservations.vue'
 
 const routes = [
   {
@@ -73,6 +74,12 @@ const routes = [
     name: 'profile',
     component: Profile,
     meta: { title: 'Mon Profil', requiresAuth: true }
+  },
+  {
+    path: '/reservations',
+    name: 'reservations',
+    component: Reservations,
+    meta: { title: 'Mes Réservations', requiresAuth: true }
   },
   {
     path: '/about',

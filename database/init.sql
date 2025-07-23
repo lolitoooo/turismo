@@ -39,10 +39,22 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- La table user_profiles a été fusionnée avec la table users
+-- Table des avis
+CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    reservation_id INTEGER REFERENCES reservations(id) ON DELETE SET NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    car_id INTEGER REFERENCES cars(id) ON DELETE SET NULL,
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
 
 -- Table des types d'abonnements
-CREATE TABLE subscription_types (
+CREATE TABLE IF NOT EXISTS subscription_types (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
@@ -62,7 +74,73 @@ CREATE TABLE IF NOT EXISTS reservation_statuses (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table des voitures
+CREATE TABLE IF NOT EXISTS cars (
+    id SERIAL PRIMARY KEY,
+    brand VARCHAR(100) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    year INTEGER NOT NULL,
+    color VARCHAR(50) NOT NULL,
+    license_plate VARCHAR(20) NOT NULL UNIQUE,
+    mileage INTEGER NOT NULL,
+    category_id INTEGER REFERENCES car_categories(id),
+    daily_price DECIMAL(10, 2) NOT NULL,
+    deposit_amount DECIMAL(10, 2) NOT NULL,
+    included_km INTEGER NOT NULL,
+    extra_km_price DECIMAL(6, 2) NOT NULL,
+    seats INTEGER NOT NULL,
+    transmission VARCHAR(20) NOT NULL,
+    fuel_type VARCHAR(50) NOT NULL,
+    features JSONB,
+    images JSONB,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id SERIAL PRIMARY KEY,
+    user_id integer NOT NULL,
+    subscription_type_id integer NOT NULL,
+    start_date timestamp with time zone NOT NULL,
+    expiry_date timestamp with time zone NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    auto_renew boolean DEFAULT false NOT NULL,
+    payment_id integer,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS reservations (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    car_id INTEGER NOT NULL REFERENCES cars(id),
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    pickup_location VARCHAR(255) NOT NULL,
+    return_location VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'confirmed',
+    special_requests TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Insertion des données initiales
+
+-- Insertion d'une souscription pour l'utilisateur 2 avec type d'abonnement 3
+INSERT INTO subscriptions (id, user_id, subscription_type_id, start_date, expiry_date, status, auto_renew, payment_id, created_at, updated_at)
+VALUES (
+    1, -- id
+    2, -- user_id
+    3, -- subscription_type_id
+    CURRENT_TIMESTAMP, -- start_date
+    CURRENT_TIMESTAMP + INTERVAL '30 days', -- expiry_date (30 jours à partir d'aujourd'hui)
+    'active', -- status
+    true, -- auto_renew
+    NULL, -- payment_id (peut être NULL si pas encore de paiement associé)
+    CURRENT_TIMESTAMP, -- created_at
+    CURRENT_TIMESTAMP -- updated_at
+);
 
 -- Rôles par défaut
 INSERT INTO roles (name, description) VALUES
@@ -93,13 +171,13 @@ VALUES (
 ON CONFLICT (email) DO NOTHING;
 
 -- Insertion des types d'abonnements
-INSERT INTO subscription_types (name, description, price, duration_days, features) VALUES
-('Starter', 'Abonnement de base pour les déplacements occasionnels', 499, 150, '{"level": 1, "days_per_month": 5, "vehicle_access": "Accès aux véhicules de catégorie 1", "delivery_included": false, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": false}'),
-('Urban', 'Abonnement urbain pour une mobilité régulière', 899, 210, '{"level": 2, "days_per_month": 7, "vehicle_access": "Accès aux véhicules de catégories 1 et 2", "delivery_included": false, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": false}'),
-('Executive', 'Abonnement business pour les professionnels exigeants', 1499, 300, '{"level": 3, "days_per_month": 10, "vehicle_access": "Accès aux véhicules de catégories 1 à 3", "delivery_included": true, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": true}'),
-('Prestige', 'Abonnement premium pour une expérience de luxe', 2499, 360, '{"level": 4, "days_per_month": 12, "vehicle_access": "Accès aux véhicules de catégories 1 à 4", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": false, "featured": false}'),
-('Elite', 'Abonnement élite pour les passionnés d automobile', 3999, 450, '{"level": 5, "days_per_month": 15, "vehicle_access": "Accès aux véhicules de catégories 1 à 5", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": true, "featured": false}'),
-('Signature', 'Abonnement signature pour une expérience ultime', 6999, 600, '{"level": 6, "days_per_month": 20, "vehicle_access": "Accès à tous les véhicules de notre flotte", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": true, "featured": false}')
+INSERT INTO subscription_types (name, description, price, duration_days, features, created_at, updated_at) VALUES
+('Starter', 'Abonnement de base pour les déplacements occasionnels', 499, 150, '{"level": 1, "days_per_month": 5, "vehicle_access": "Accès aux véhicules de catégorie 1", "delivery_included": false, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": false}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00'),
+('Urban', 'Abonnement urbain pour une mobilité régulière', 899, 210, '{"level": 2, "days_per_month": 7, "vehicle_access": "Accès aux véhicules de catégories 1 et 2", "delivery_included": false, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": false}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00'),
+('Executive', 'Abonnement business pour les professionnels exigeants', 1499, 300, '{"level": 3, "days_per_month": 10, "vehicle_access": "Accès aux véhicules de catégories 1 à 3", "delivery_included": true, "concierge_included": false, "hotline_included": true, "cleaning_included": false, "featured": true}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00'),
+('Prestige', 'Abonnement premium pour une expérience de luxe', 2499, 360, '{"level": 4, "days_per_month": 12, "vehicle_access": "Accès aux véhicules de catégories 1 à 4", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": false, "featured": false}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00'),
+('Elite', 'Abonnement élite pour les passionnés d automobile', 3999, 450, '{"level": 5, "days_per_month": 15, "vehicle_access": "Accès aux véhicules de catégories 1 à 5", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": true, "featured": false}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00'),
+('Signature', 'Abonnement signature pour une expérience ultime', 6999, 600, '{"level": 6, "days_per_month": 20, "vehicle_access": "Accès à tous les véhicules de notre flotte", "delivery_included": true, "concierge_included": true, "hotline_included": true, "cleaning_included": true, "featured": false}', '2025-07-11 15:21:45.055855+00', '2025-07-11 15:21:45.055855+00')
 ON CONFLICT (name) DO NOTHING;
 
 -- Insertion des catégories de voitures

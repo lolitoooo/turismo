@@ -7,12 +7,12 @@ module.exports = (sequelize, DataTypes) => {
     },
     userId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       field: 'user_id'
     },
     carId: {
       type: DataTypes.INTEGER,
-      allowNull: true,
+      allowNull: false,
       field: 'car_id'
     },
     startDate: {
@@ -27,62 +27,23 @@ module.exports = (sequelize, DataTypes) => {
     },
     pickupLocation: {
       type: DataTypes.TEXT,
-      allowNull: true,
+      allowNull: false,
       field: 'pickup_location'
     },
     returnLocation: {
       type: DataTypes.TEXT,
-      allowNull: true,
+      allowNull: false,
       field: 'return_location'
     },
-    totalPrice: {
-      type: DataTypes.DECIMAL(10, 2),
+    status: {
+      type: DataTypes.STRING(50),
       allowNull: false,
-      field: 'total_price'
+      defaultValue: 'confirmed'
     },
-    depositPaid: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-      field: 'deposit_paid'
-    },
-    depositAmount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      field: 'deposit_amount'
-    },
-    depositPaymentId: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-      field: 'deposit_payment_id'
-    },
-    statusId: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'status_id'
-    },
-    initialMileage: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'initial_mileage'
-    },
-    finalMileage: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'final_mileage'
-    },
-    extraKm: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      field: 'extra_km'
-    },
-    extraCharges: {
-      type: DataTypes.DECIMAL(10, 2),
-      defaultValue: 0,
-      field: 'extra_charges'
-    },
-    notes: {
+    specialRequests: {
       type: DataTypes.TEXT,
-      allowNull: true
+      allowNull: true,
+      field: 'special_requests'
     },
     createdAt: {
       type: DataTypes.DATE,
@@ -108,7 +69,7 @@ module.exports = (sequelize, DataTypes) => {
     });
     Reservation.belongsTo(models.ReservationStatus, {
       foreignKey: 'statusId',
-      as: 'status'
+      as: 'reservationStatus'
     });
     Reservation.hasMany(models.Payment, {
       foreignKey: 'reservationId',

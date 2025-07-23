@@ -55,7 +55,9 @@
                 </ul>
               </div>
               
-              <button class="btn-subscribe" @click="subscribe(subscription)">S'abonner</button>
+              <button class="btn-subscribe" @click="subscribe(subscription)">
+                {{ hasActiveSubscription ? 'Changer d\'abonnement' : 'S\'abonner' }}
+              </button>
             </div>
           </div>
         </div>
@@ -91,10 +93,12 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllCars } from '@/services/carService'
 import { getSubscriptions } from '@/services/subscriptionService'
+import { useSubscriptionStore } from '@/stores/subscription'
+import { useAuthStore } from '@/stores/auth'
 
 export default {
   name: 'SubscriptionsView',
@@ -104,6 +108,10 @@ export default {
     const error = ref(null)
     const subscriptions = ref([])
     const cars = ref([])
+    const subscriptionStore = useSubscriptionStore()
+    const authStore = useAuthStore()
+    const hasActiveSubscription = ref(false)
+    const activeSubscription = ref(null)
     
     // Charger les abonnements et les voitures
     const loadSubscriptions = async () => {
@@ -155,14 +163,36 @@ export default {
       }
     }
     
+    // Vérifier si l'utilisateur a un abonnement actif
+    const checkActiveSubscription = async () => {
+      if (authStore.isAuthenticated) {
+        try {
+          const subscription = await subscriptionStore.fetchActiveSubscription()
+          hasActiveSubscription.value = subscriptionStore.hasActiveSubscription
+          activeSubscription.value = subscription
+        } catch (err) {
+          console.error('Erreur lors de la vérification de l\'abonnement actif:', err)
+        }
+      }
+    }
+
     // Fonction pour s'abonner
     const subscribe = (subscription) => {
-      // Rediriger vers la page de paiement ou de confirmation
-      router.push(`/subscriptions/${subscription.id}/checkout`)
+      // Si l'utilisateur a déjà un abonnement actif, afficher une confirmation
+      if (hasActiveSubscription.value) {
+        if (confirm('Vous avez déjà un abonnement actif. Souhaitez-vous changer pour ce nouvel abonnement ?')) {
+          // Rediriger vers la page de paiement ou de confirmation
+          router.push(`/subscriptions/${subscription.id}/checkout`)
+        }
+      } else {
+        // Rediriger vers la page de paiement ou de confirmation
+        router.push(`/subscriptions/${subscription.id}/checkout`)
+      }
     }
     
     onMounted(() => {
       loadSubscriptions()
+      checkActiveSubscription()
     })
     
     return {
@@ -170,7 +200,9 @@ export default {
       error,
       subscriptions,
       loadSubscriptions,
-      subscribe
+      subscribe,
+      hasActiveSubscription,
+      activeSubscription
     }
   }
 }

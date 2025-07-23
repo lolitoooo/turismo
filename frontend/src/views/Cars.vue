@@ -31,7 +31,7 @@
               <h3>Filtrer par</h3>
               <div class="filter-tabs">
                 <button 
-                  v-for="tab in ['type', 'brand', 'engine']" 
+                  v-for="tab in ['category', 'type', 'brand', 'engine']" 
                   :key="tab" 
                   :class="['filter-tab', { active: activeTab === tab }]"
                   @click="activeTab = tab"
@@ -50,7 +50,19 @@
               Tous
             </button>
             
-            <template v-if="activeTab === 'type'">
+            <template v-if="activeTab === 'category'">
+              <button 
+                v-for="category in categories" 
+                :key="category.id" 
+                class="category-btn"
+                :class="{ active: selectedCategory === category.id.toString() }"
+                @click="handleCategoryChange(category.id.toString())"
+              >
+                Catégorie {{ category.id }}
+              </button>
+            </template>
+
+            <template v-else-if="activeTab === 'type'">
               <button 
                 v-for="type in uniqueTypes" 
                 :key="type" 
@@ -94,7 +106,9 @@
               <img :src="car.image" :alt="car.name">
             </div>
             <div class="car-details">
-              <h3 class="car-name">{{ car.name }}</h3>
+              <div class="car-header">
+                <h3 class="car-name">{{ car.name }}</h3>
+              </div>
               <div class="car-info">
                 <span class="car-type">{{ car.type }}</span>
                 <span class="car-engine">{{ car.engine }}</span>
@@ -117,26 +131,70 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAllCars, getUniqueTypes, getUniqueBrands, getUniqueEngines, getCarsByType, getCarsByBrand, getCarsByEngine } from '@/services/carService'
+import { useSubscriptionStore } from '@/stores/subscription'
 
 export default {
   name: 'CarsView',
   setup() {
     const router = useRouter()
-    const activeTab = ref('type')
+    const subscriptionStore = useSubscriptionStore()
+    const activeTab = ref('category')
     const selectedCategory = ref('all')
     const loading = ref(true)
     const error = ref(null)
     
     const tabLabels = {
+      category: 'Catégorie',
       type: 'Type',
       brand: 'Marque',
       engine: 'Motorisation'
     }
     
     const cars = ref([])
+    // Récupérer les catégories depuis le store de souscription
+    const categories = computed(() => {
+      // Si les abonnements sont chargés dans le store, on les utilise
+      if (subscriptionStore.subscriptions && subscriptionStore.subscriptions.length > 0) {
+        return subscriptionStore.subscriptions.map(sub => ({
+          id: sub.id || (sub.subscriptionType ? sub.subscriptionType.id : null),
+          name: sub.name || (sub.subscriptionType ? sub.subscriptionType.name : 'Inconnu')
+        }));
+      }
+      // Sinon, on utilise des valeurs par défaut
+      return [
+        { id: 1, name: 'Starter' },
+        { id: 2, name: 'Urban' },
+        { id: 3, name: 'Executive' },
+        { id: 4, name: 'Prestige' },
+        { id: 5, name: 'Elite' },
+        { id: 6, name: 'Signature' }
+      ];
+    })
     const uniqueTypesData = ref([])
     const uniqueBrandsData = ref([])
     const uniqueEnginesData = ref([])
+    
+    // Filtrer les voitures en fonction du niveau d'abonnement de l'utilisateur
+    const filterCarsBySubscriptionLevel = (carsToFilter) => {
+      // Récupérer le niveau maximum de catégorie accessible
+      const maxLevel = subscriptionStore.hasActiveSubscription ? subscriptionStore.maxCarCategoryLevel : 0
+      console.log(subscriptionStore.value)
+      // Si maxLevel est 0 (pas d'abonnement ou erreur), afficher toutes les voitures
+      if (maxLevel === 0) {
+        console.log('Aucun abonnement actif ou erreur de chargement, affichage de toutes les voitures')
+        return carsToFilter
+      }
+      
+      // Filtrer pour ne garder que les voitures accessibles selon le niveau d'abonnement
+      return carsToFilter.filter(car => {
+        // Vérifier si la voiture est accessible avec l'abonnement actuel
+        if (car.category && car.category.id) {
+          // Une voiture est accessible si son niveau de catégorie est inférieur ou égal au niveau d'abonnement
+          return car.category.id <= maxLevel;
+        }
+        return false; // Si pas de catégorie définie, la voiture n'est pas accessible
+      })
+    }
     
     // Charger les données des voitures depuis l'API
     const loadCars = async () => {
@@ -144,10 +202,16 @@ export default {
       error.value = null
       
       try {
-        // Charger toutes les voitures
-        cars.value = await getAllCars()
+        // Charger les abonnements depuis le store
+        await subscriptionStore.fetchSubscriptions()
         
-        // Charger les types, marques et motorisations uniques
+        // Charger toutes les voitures
+        const allCars = await getAllCars()
+        
+        // Appliquer le filtre d'abonnement
+        cars.value = filterCarsBySubscriptionLevel(allCars)
+        
+        // Charger les données uniques pour les filtres
         uniqueTypesData.value = await getUniqueTypes()
         uniqueBrandsData.value = await getUniqueBrands()
         uniqueEnginesData.value = await getUniqueEngines()
@@ -155,7 +219,7 @@ export default {
         loading.value = false
       } catch (err) {
         console.error('Erreur lors du chargement des voitures:', err)
-        error.value = 'Une erreur est survenue lors du chargement des données'
+        error.value = 'Erreur lors du chargement des voitures. Veuillez réessayer.'
         loading.value = false
       }
     }
@@ -172,14 +236,24 @@ export default {
       error.value = null
       
       try {
+        let filteredCars = []
+        
         // Charger les voitures filtrées en fonction de l'onglet actif
-        if (activeTab.value === 'type') {
-          cars.value = await getCarsByType(selectedCategory.value)
+        if (activeTab.value === 'category') {
+          // Charger toutes les voitures puis filtrer par catégorie
+          const allCars = await getAllCars()
+          const categoryId = parseInt(selectedCategory.value)
+          filteredCars = allCars.filter(car => car.category && car.category.id === categoryId)
+        } else if (activeTab.value === 'type') {
+          filteredCars = await getCarsByType(selectedCategory.value)
         } else if (activeTab.value === 'brand') {
-          cars.value = await getCarsByBrand(selectedCategory.value)
+          filteredCars = await getCarsByBrand(selectedCategory.value)
         } else if (activeTab.value === 'engine') {
-          cars.value = await getCarsByEngine(selectedCategory.value)
+          filteredCars = await getCarsByEngine(selectedCategory.value)
         }
+        
+        // Appliquer le filtre d'abonnement
+        cars.value = filterCarsBySubscriptionLevel(filteredCars)
         
         loading.value = false
       } catch (err) {
@@ -206,7 +280,17 @@ export default {
     })
     
     // Charger les données au montage du composant
-    onMounted(() => {
+    onMounted(async () => {
+      // Récupérer l'abonnement actif de l'utilisateur si nécessaire
+      if (!subscriptionStore.activeSubscription) {
+        try {
+          await subscriptionStore.fetchActiveSubscription()
+        } catch (err) {
+          console.error('Erreur lors de la récupération de l\'abonnement actif:', err)
+        }
+      }
+      
+      // Charger les voitures filtrées par abonnement
       loadCars()
     })
     
@@ -215,6 +299,7 @@ export default {
       selectedCategory,
       tabLabels,
       cars,
+      categories,
       uniqueTypes: uniqueTypesData,
       uniqueBrands: uniqueBrandsData,
       uniqueEngines: uniqueEnginesData,

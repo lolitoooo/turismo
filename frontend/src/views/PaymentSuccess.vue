@@ -64,7 +64,8 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getSubscriptionById, subscribeToSubscription, saveActiveSubscription } from '@/services/subscriptionService';
+import { getSubscriptionById, subscribeToSubscription } from '@/services/subscriptionService';
+import { useSubscriptionStore } from '@/stores/subscription';
 import { checkSessionStatus } from '@/services/stripeService';
 import apiClient from '@/services/api.service';
 import { useAuthStore } from '@/stores/auth';
@@ -150,9 +151,11 @@ export default {
           throw new Error('Impossible de récupérer les détails de l\'abonnement');
         }
         
-        // Enregistrer l'abonnement actif dans localStorage
-        const activeSubscription = saveActiveSubscription(subscriptionData);
-        console.log('Abonnement actif:', activeSubscription);
+        // Utiliser le store d'abonnement au lieu du localStorage
+        const subscriptionStore = useSubscriptionStore();
+        await subscriptionStore.fetchActiveSubscription();
+        const activeSubscription = subscriptionStore.activeSubscription;
+        console.log('Abonnement actif depuis le store:', activeSubscription);
         
         // Récupérer les données utilisateur à jour depuis le backend
         await authStore.fetchCurrentUser();
@@ -166,8 +169,17 @@ export default {
         
         // Mettre à jour les données d'affichage
         subscriptionName.value = subscriptionData.name;
-        startDate.value = activeSubscription.startDate;
-        expiryDate.value = activeSubscription.expiryDate;
+        
+        // Vérifier que activeSubscription existe avant d'accéder à ses propriétés
+        if (activeSubscription) {
+          startDate.value = activeSubscription.startDate;
+          expiryDate.value = activeSubscription.expiryDate;
+        } else {
+          console.error('Erreur: activeSubscription est undefined');
+          // Utiliser des valeurs par défaut ou les données de subscriptionData si disponibles
+          if (subscriptionData.startDate) startDate.value = subscriptionData.startDate;
+          if (subscriptionData.expiryDate) expiryDate.value = subscriptionData.expiryDate;
+        }
         
         // Marquer comme succès
         success.value = true;

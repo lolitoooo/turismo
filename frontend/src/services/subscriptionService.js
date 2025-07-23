@@ -1,4 +1,5 @@
 import apiClient from './api.service';
+import { useSubscriptionStore } from '../stores/subscription';
 
 // Cache pour les abonnements
 const subscriptionsCache = {
@@ -53,12 +54,11 @@ export async function getSubscriptions() {
  */
 export async function getSubscriptionById(id) {
   try {
-    const subscriptions = await getSubscriptions();
-    console.log('Abonnements reçus:', subscriptions);
-    // Convertir l'ID en nombre pour la comparaison
-    const numericId = parseInt(id, 10);
-    console.log('Recherche de l\'abonnement avec ID:', numericId);
-    return subscriptions.find(subscription => subscription.id === numericId) || null;
+    // Utiliser le store d'abonnement
+    const subscriptionStore = useSubscriptionStore();
+    
+    // Récupérer l'abonnement par son ID depuis le store
+    return await subscriptionStore.getSubscriptionById(id);
   } catch (error) {
     console.error(`Erreur lors de la récupération de l'abonnement ${id}:`, error);
     return null;
@@ -125,7 +125,16 @@ export async function subscribeToSubscription(subscriptionId, userData) {
       
       // Créer un abonnement simulé
       const subscription = await getSubscriptionById(subscriptionId);
-      const activeSubscription = saveActiveSubscription(subscription);
+      const activeSubscription = subscription;
+      
+      // Calculer les dates de début et de fin
+      const startDate = new Date();
+      const expiryDate = new Date();
+      expiryDate.setMonth(expiryDate.getMonth() + 1); // Abonnement d'un mois par défaut
+      
+      // Ajouter les dates à l'abonnement
+      activeSubscription.startDate = startDate;
+      activeSubscription.expiryDate = expiryDate;
       
       return {
         success: true,
@@ -145,118 +154,82 @@ export async function subscribeToSubscription(subscriptionId, userData) {
 
 /**
  * Annule un abonnement
- * @param {number} subscriptionId - ID de l'abonnement
  * @returns {Promise<Object>} Résultat de l'annulation
  */
-export async function cancelSubscription(subscriptionId) {
+export async function cancelSubscription() {
   try {
-    // Récupérer l'ID utilisateur et le token depuis le localStorage
-    const userJson = localStorage.getItem('user');
-    const authToken = localStorage.getItem('token');
+    // Utiliser le store d'abonnement
+    const subscriptionStore = useSubscriptionStore();
     
-    if (!userJson || !authToken) {
-      throw new Error('Utilisateur non connecté');
-    }
-    
-    const user = JSON.parse(userJson);
-    const userId = user.id;
-    
-    // Configuration des headers avec le token d'authentification
-    const config = {
-      headers: {
-        'Authorization': `Bearer ${authToken}`
-      }
-    };
-    
-    // Appeler l'API pour annuler l'abonnement
-    try {
-      const response = await apiClient.delete(`/api/userSubscription/user/${userId}/subscription`, config);
-      
-      // Supprimer l'abonnement actif du localStorage
-      localStorage.removeItem('activeSubscription');
-      
-      return response.data;
-    } catch (apiError) {
-      console.warn('API d\'annulation non disponible, simulation d\'une réponse réussie:', apiError);
-      
-      // Supprimer l'abonnement actif du localStorage
-      localStorage.removeItem('activeSubscription');
-      
-      // Simuler une réponse réussie
-      return {
-        success: true,
-        message: 'Abonnement annulé avec succès (mode simulation)',
-        subscriptionId,
-        cancellationDate: new Date().toISOString()
-      };
-    }
+    // Appeler la méthode du store pour annuler l'abonnement
+    return await subscriptionStore.cancelSubscription();
   } catch (error) {
-    console.error(`Erreur lors de l'annulation de l'abonnement ${subscriptionId}:`, error);
+    console.error(`Erreur lors de l'annulation de l'abonnement:`, error);
     throw error;
   }
 }
 
 /**
- * Vérifie si l'utilisateur a un abonnement actif
- * @returns {boolean} true si l'utilisateur a un abonnement actif, false sinon
- */
-export function hasActiveSubscription() {
-  // Récupérer l'abonnement depuis le localStorage
-  const activeSubscription = localStorage.getItem('activeSubscription');
-  if (!activeSubscription) return false;
-  
-  try {
-    const subscription = JSON.parse(activeSubscription);
-    // Vérifier si l'abonnement est toujours valide (non expiré)
-    if (subscription && new Date(subscription.expiryDate) > new Date()) {
-      return true;
-    }
-    // Si expiré, supprimer du localStorage
-    localStorage.removeItem('activeSubscription');
-    return false;
-  } catch (e) {
-    console.error('Erreur lors de la vérification de l\'abonnement:', e);
-    return false;
-  }
-}
-
-/**
- * Récupère l'abonnement actif de l'utilisateur
- * @returns {Object|null} Détails de l'abonnement actif ou null si aucun
- */
-export function getActiveSubscription() {
-  const activeSubscription = localStorage.getItem('activeSubscription');
-  if (!activeSubscription) return null;
-  
-  try {
-    const subscription = JSON.parse(activeSubscription);
-    if (subscription && new Date(subscription.expiryDate) > new Date()) {
-      return subscription;
-    }
-    localStorage.removeItem('activeSubscription');
-    return null;
-  } catch (e) {
-    console.error('Erreur lors de la récupération de l\'abonnement:', e);
-    return null;
-  }
-}
-
-/**
- * Enregistre un abonnement actif pour l'utilisateur
+ * Prépare un objet d'abonnement avec les dates appropriées
  * @param {Object} subscription - Détails de l'abonnement
  * @param {number} durationMonths - Durée de l'abonnement en mois
+ * @returns {Object|null} L'objet d'abonnement actif avec dates ou null en cas d'erreur
+ * @deprecated Cette fonction est dépréciée. Utilisez le store d'abonnement à la place.
  */
-export function saveActiveSubscription(subscription, durationMonths = 1) {
-  const startDate = new Date();
-  const expiryDate = new Date();
-  expiryDate.setMonth(expiryDate.getMonth() + durationMonths);
-  
-  const activeSubscription = {
-    ...subscription,
-    startDate: startDate.toISOString(),
-    expiryDate: expiryDate.toISOString()
-  };
-  
-  localStorage.setItem('activeSubscription', JSON.stringify(activeSubscription));
-  return activeSubscription;
+export function prepareSubscriptionDates(subscription, durationMonths = 1) {
+  try {
+    if (!subscription) return null;
+    
+    // Calculer la date d'expiration
+    const startDate = new Date();
+    const expiryDate = new Date(startDate);
+    expiryDate.setMonth(expiryDate.getMonth() + durationMonths);
+    
+    // Créer l'objet d'abonnement avec dates
+    return {
+      ...subscription,
+      startDate: startDate.toISOString(),
+      expiryDate: expiryDate.toISOString()
+    };
+  } catch (error) {
+    console.error('Erreur lors de la préparation de l\'objet d\'abonnement:', error);
+    return null;
+  }
+}
+
+/**
+ * Vérifie si l'utilisateur a un abonnement actif en interrogeant l'API
+ * @returns {Promise<boolean>} true si l'utilisateur a un abonnement actif, false sinon
+ */
+export async function hasActiveSubscription() {
+  try {
+    // Utiliser le store d'abonnement
+    const subscriptionStore = useSubscriptionStore();
+    
+    // Récupérer l'abonnement actif depuis le store
+    await subscriptionStore.fetchActiveSubscription();
+    
+    // Utiliser le getter du store pour vérifier si l'abonnement est actif
+    return subscriptionStore.hasActiveSubscription;
+  } catch (error) {
+    console.error('Erreur lors de la vérification de l\'abonnement:', error);
+    return false;
+  }
+}
+
+/**
+ * Récupère l'abonnement actif de l'utilisateur directement depuis l'API
+ * @returns {Promise<Object|null>} Détails de l'abonnement actif ou null si aucun
+ */
+export async function getActiveSubscription() {
+  try {
+    // Utiliser le store d'abonnement
+    const subscriptionStore = useSubscriptionStore();
+    
+    // Récupérer l'abonnement actif depuis le store
+    return await subscriptionStore.fetchActiveSubscription();
+  } catch (error) {
+    console.error('Erreur lors de la récupération de l\'abonnement depuis l\'API:', error);
+    return null;
+  }
 }

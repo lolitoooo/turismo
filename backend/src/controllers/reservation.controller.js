@@ -20,7 +20,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car', include: [{ model: CarCategory, as: 'category' }] },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' }
         ]
       });
@@ -39,18 +39,15 @@ const reservationController = {
    */
   getUserReservations: async (req, res, next) => {
     try {
-      const { userId } = req.params;
-
-      // Vérification des permissions (un utilisateur ne peut voir que ses propres réservations, sauf admin/manager)
-      if (req.user.id !== parseInt(userId) && !['admin', 'manager'].includes(req.user.role.name)) {
-        return res.status(403).json({ message: 'Accès non autorisé à ces réservations' });
-      }
+      // Utiliser l'ID de l'utilisateur connecté depuis req.user
+      const userId = req.user.id;
+      console.log('ID de l\'utilisateur connecté:', userId);
 
       const reservations = await Reservation.findAll({
         where: { userId },
         include: [
           { model: Car, as: 'car', include: [{ model: CarCategory, as: 'category' }] },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' },
           { model: Review, as: 'review' }
         ]
@@ -76,7 +73,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'phone'] },
           { model: Car, as: 'car', include: [{ model: CarCategory, as: 'category' }] },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' },
           { model: Review, as: 'review' }
         ]
@@ -178,12 +175,6 @@ const reservationController = {
         });
       }
 
-      // Récupération du statut 'pending'
-      const pendingStatus = await ReservationStatus.findOne({ where: { name: 'pending' } });
-      if (!pendingStatus) {
-        return res.status(500).json({ message: 'Erreur lors de la configuration des statuts' });
-      }
-
       // Création de la réservation
       const reservation = await Reservation.create({
         userId,
@@ -192,11 +183,8 @@ const reservationController = {
         endDate,
         pickupLocation,
         returnLocation,
-        totalPrice,
-        depositAmount: car.depositAmount,
-        additionalOptions: additionalOptions || [],
-        specialRequests: specialRequests || '',
-        statusId: pendingStatus.id
+        status: 'pending',
+        specialRequests: specialRequests || ''
       });
 
       // Récupération de la réservation créée avec ses relations
@@ -204,7 +192,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car', include: [{ model: CarCategory, as: 'category' }] },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -228,7 +216,7 @@ const reservationController = {
       // Récupération de la réservation
       const reservation = await Reservation.findByPk(id, {
         include: [
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Car, as: 'car' }
         ]
       });
@@ -243,7 +231,7 @@ const reservationController = {
       }
 
       // Vérification si la réservation peut être modifiée
-      if (!['pending', 'confirmed'].includes(reservation.status.name)) {
+      if (!['pending', 'confirmed'].includes(reservation.reservationStatus.name)) {
         return res.status(400).json({ message: 'Cette réservation ne peut plus être modifiée' });
       }
 
@@ -280,7 +268,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car', include: [{ model: CarCategory, as: 'category' }] },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -303,7 +291,7 @@ const reservationController = {
       // Récupération de la réservation
       const reservation = await Reservation.findByPk(id, {
         include: [
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' }
         ]
       });
@@ -316,52 +304,25 @@ const reservationController = {
       if (req.user.id !== reservation.userId && !['admin', 'manager'].includes(req.user.role.name)) {
         return res.status(403).json({ message: 'Accès non autorisé pour annuler cette réservation' });
       }
-
-      // Vérification si la réservation peut être annulée
-      if (!['pending', 'confirmed'].includes(reservation.status.name)) {
-        return res.status(400).json({ message: 'Cette réservation ne peut plus être annulée' });
-      }
-
-      // Récupération du statut 'cancelled'
-      const cancelledStatus = await ReservationStatus.findOne({ where: { name: 'cancelled' } });
-      if (!cancelledStatus) {
-        return res.status(500).json({ message: 'Erreur lors de la configuration des statuts' });
-      }
-
-      // Mise à jour de la réservation
-      await reservation.update({ statusId: cancelledStatus.id });
-
-      // Remboursement de la caution si elle a été payée
-      const depositPayment = reservation.payments.find(payment => payment.type === 'deposit');
-      if (depositPayment) {
-        // Création d'un remboursement
-        await Payment.create({
-          reservationId: id,
-          amount: -depositPayment.amount,
-          type: 'refund',
-          status: 'completed',
-          paymentMethod: depositPayment.paymentMethod,
-          transactionId: `refund-${depositPayment.transactionId}`,
-          details: {
-            originalPaymentId: depositPayment.id,
-            reason: 'Annulation de réservation'
-          }
-        });
-      }
-
-      // Récupération de la réservation mise à jour
-      const updatedReservation = await Reservation.findByPk(id, {
-        include: [
-          { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
-          { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' },
-          { model: Payment, as: 'payments' }
-        ]
+      
+      // Suppression complète de la réservation de la base de données
+      await reservation.destroy();
+      
+      // Récupération des informations de la voiture et de l'utilisateur avant de renvoyer la réponse
+      const car = await Car.findByPk(reservation.carId);
+      const user = await User.findByPk(reservation.userId, {
+        attributes: ['id', 'firstName', 'lastName', 'email']
       });
 
       res.status(200).json({
-        message: 'Réservation annulée avec succès',
-        reservation: updatedReservation
+        message: 'Réservation supprimée avec succès',
+        deletedReservationInfo: {
+          id: parseInt(id),
+          userId: user ? user.id : null,
+          carId: car ? car.id : null,
+          userInfo: user || null,
+          carInfo: car || null
+        }
       });
     } catch (error) {
       next(error);
@@ -381,7 +342,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user' },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -426,7 +387,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -452,7 +413,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user' },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' }
         ]
       });
@@ -473,7 +434,7 @@ const reservationController = {
       }
 
       // Vérification si la réservation est confirmée
-      if (reservation.status.name !== 'confirmed') {
+      if (reservation.reservationStatus.name !== 'confirmed') {
         return res.status(400).json({ message: 'La réservation doit être confirmée avant de payer la caution' });
       }
 
@@ -524,7 +485,7 @@ const reservationController = {
       // Récupération de la réservation
       const reservation = await Reservation.findByPk(id, {
         include: [
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Review, as: 'review' }
         ]
       });
@@ -539,7 +500,7 @@ const reservationController = {
       }
 
       // Vérification si la réservation est terminée
-      if (reservation.status.name !== 'completed') {
+      if (reservation.reservationStatus.name !== 'completed') {
         return res.status(400).json({ message: 'Vous ne pouvez ajouter un avis que pour une réservation terminée' });
       }
 
@@ -579,7 +540,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user' },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' }
         ]
       });
@@ -589,7 +550,7 @@ const reservationController = {
       }
 
       // Vérification si la réservation est confirmée
-      if (reservation.status.name !== 'confirmed') {
+      if (reservation.reservationStatus.name !== 'confirmed') {
         return res.status(400).json({ message: 'La réservation doit être confirmée pour commencer la location' });
       }
 
@@ -622,7 +583,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -648,7 +609,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user' },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' }
+          { model: ReservationStatus, as: 'reservationStatus' }
         ]
       });
 
@@ -657,7 +618,7 @@ const reservationController = {
       }
 
       // Vérification si la réservation est en cours
-      if (reservation.status.name !== 'in_progress') {
+      if (reservation.reservationStatus.name !== 'in_progress') {
         return res.status(400).json({ message: 'La réservation doit être en cours pour terminer la location' });
       }
 
@@ -716,7 +677,7 @@ const reservationController = {
         include: [
           { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] },
           { model: Car, as: 'car' },
-          { model: ReservationStatus, as: 'status' },
+          { model: ReservationStatus, as: 'reservationStatus' },
           { model: Payment, as: 'payments' }
         ]
       });
@@ -730,6 +691,45 @@ const reservationController = {
           extraKm: kmDriven - reservation.car.includedKm,
           pricePerKm: reservation.car.extraKmPrice
         } : null
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * Récupération des dates réservées pour un véhicule spécifique
+   */
+  getReservedDatesForCar: async (req, res, next) => {
+    try {
+      const { carId } = req.params;
+      
+      // Vérification si la voiture existe
+      const car = await Car.findByPk(carId);
+      if (!car) {
+        return res.status(404).json({ message: 'Voiture non trouvée' });
+      }
+
+      // Récupération des réservations confirmées et en cours pour cette voiture
+      const reservations = await Reservation.findAll({
+        where: {
+          carId,
+          status: {
+            [Op.in]: ['confirmed', 'pending', 'in_progress']
+          }
+        },
+        attributes: ['startDate', 'endDate']
+      });
+
+      // Formatage des dates pour le frontend
+      const reservedDates = reservations.map(reservation => ({
+        start: reservation.startDate,
+        end: reservation.endDate
+      }));
+
+      res.status(200).json({
+        message: 'Dates réservées récupérées avec succès',
+        reservedDates
       });
     } catch (error) {
       next(error);

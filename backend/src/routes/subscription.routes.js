@@ -11,7 +11,28 @@ const router = express.Router();
 // Obtenir tous les types d'abonnements
 router.get('/', subscriptionController.getAllSubscriptionTypes);
 
-// Obtenir un type d'abonnement par ID
+// Routes utilisateur (doivent être définies avant les routes avec des paramètres génériques)
+// Obtenir l'abonnement actif d'un utilisateur
+router.get(
+  '/user/:userId/active',
+  [
+    param('userId').isInt().withMessage('ID utilisateur invalide'),
+    validateRequest
+  ],
+  subscriptionController.getUserActiveSubscription
+);
+
+// Obtenir l'abonnement d'un utilisateur (pour compatibilité avec le store Pinia)
+router.get(
+  '/user/:userId/subscription',
+  [
+    param('userId').isInt().withMessage('ID utilisateur invalide'),
+    validateRequest
+  ],
+  subscriptionController.getUserActiveSubscription
+);
+
+// Obtenir un type d'abonnement par ID (doit être après les routes spécifiques)
 router.get(
   '/:id',
   [
